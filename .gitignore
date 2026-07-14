@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local tooling
+.venv/
+venv/
+env/
+.env
+.env.*
+pip-wheel-metadata/
+*.egg-info/
+
+# Manim and presentation output
+media/
+slides/
+builds/
+*_assets/
+
+# Logs and generated artifacts
+*.log
+*.tmp
+*.bak
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+
+/old_version/**

@@ -1,0 +1,27 @@
+{
+  "name": "Manim Studio",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "remoteUser": "manimuser",
+  "workspaceFolder": "/workspaces/Manim-Studio",
+  "postCreateCommand": "python -m pip install --user -e . && python -m manim_studio.cli doctor",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "Rickaym.manim-sideview",
+        "analytic-signal.preview-mp4"
+      ]
+    }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  }
+}

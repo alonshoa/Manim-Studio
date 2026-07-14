@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "manim-studio"
+version = "0.1.0"
+description = "Local reproducible workspace for Manim presentation work."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "manim==0.20.1",
+  "manim-slides==5.6.0",
+]
+
+[project.scripts]
+studio = "manim_studio.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
