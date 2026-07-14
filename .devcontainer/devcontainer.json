@@ -6,7 +6,7 @@
   },
   "remoteUser": "manimuser",
   "workspaceFolder": "/workspaces/Manim-Studio",
-  "postCreateCommand": "python -m pip install --user -e . && python -m manim_studio.cli doctor",
+  "postCreateCommand": "python -m pip install --no-deps -e . && python -m manim_studio.cli doctor",
   "customizations": {
     "vscode": {
       "settings": {

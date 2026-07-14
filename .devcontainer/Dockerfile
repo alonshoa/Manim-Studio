@@ -3,7 +3,7 @@ FROM manimcommunity/manim:v0.20.1
 USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/home/manimuser/.local/bin:${PATH}"
+ENV PATH="/manim/.local/bin:/home/manimuser/.local/bin:${PATH}"
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
@@ -33,6 +33,8 @@ RUN apt-get update \
 RUN python -m pip install --no-cache-dir \
         manim==0.20.1 \
         manim-slides==5.6.0
+
+RUN chown -R manimuser:manimuser /opt/venv /manim
 
 # Optional GPU/OpenGL support is intentionally not enabled by default. If a
 # workstation needs it later, add explicit runArgs for the host GPU stack here.

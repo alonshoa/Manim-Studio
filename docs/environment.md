@@ -18,6 +18,10 @@ Install these host tools:
 Open the repository in VS Code, run **Dev Containers: Reopen in Container**, and
 let the container build from `.devcontainer/Dockerfile`.
 
+The devcontainer post-create step installs the local `studio` package into the
+container virtual environment in editable mode without reinstalling dependencies,
+because the pinned Manim runtime is already baked into the image.
+
 ## Pinned Runtime
 
 The devcontainer currently pins:
