@@ -96,4 +96,5 @@ class BinaryCrossEntropyLoss(Scene):
         )
         self.play(FadeIn(dot), Write(label))
         self.play(MoveAlongPath(dot, path), rate_func=linear, run_time=self.DOT_RUN_TIME)
+        label.clear_updaters()
         self.play(FadeOut(label), FadeOut(dot))

@@ -13,7 +13,7 @@ from manim_studio.cli import main
 
 
 class CatalogValidationTests(unittest.TestCase):
-    def test_checked_in_catalog_registers_example_scenes(self) -> None:
+    def test_checked_in_catalog_registers_expected_scenes(self) -> None:
         if importlib.util.find_spec("manim") is None:
             self.skipTest("manim is not installed in this Python environment")
         if importlib.util.find_spec("manim_slides") is None:
@@ -24,9 +24,14 @@ class CatalogValidationTests(unittest.TestCase):
         result = validate_catalog(repo_root)
 
         self.assertTrue(result.ok, result.errors)
-        self.assertEqual(2, len(result.entries))
         self.assertEqual(
-            {("examples", "square_to_circle"), ("examples", "basic_slide")},
+            {
+                ("examples", "square_to_circle"),
+                ("examples", "basic_slide"),
+                ("matrix_work", "vectors_ab_to_v"),
+                ("losses", "binary_cross_entropy"),
+                ("matrix_work", "parametric_curve_3d"),
+            },
             {(entry.deck_id, entry.scene_id) for entry in result.entries},
         )
 
