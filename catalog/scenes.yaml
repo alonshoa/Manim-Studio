@@ -1,0 +1,18 @@
+version: 1
+scenes:
+  - deck_id: examples
+    scene_id: square_to_circle
+    source_path: examples/basic_scene.py
+    class_name: SquareToCircle
+    base_scene_type: Scene
+    renderer: manim
+    language: en
+    asset_notes: "No external assets."
+  - deck_id: examples
+    scene_id: basic_slide
+    source_path: examples/basic_slide.py
+    class_name: BasicSlide
+    base_scene_type: Slide
+    renderer: manim-slides
+    language: en
+    asset_notes: "No external assets."

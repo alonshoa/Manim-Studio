@@ -7,10 +7,12 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Sequence
 
 
 MIN_PYTHON = (3, 11)
+DEFAULT_CATALOG_PATH = "catalog/scenes.yaml"
 HEBREW_FONT_QUERIES = (
     "Noto Sans Hebrew",
     "Noto Serif Hebrew",
@@ -169,6 +171,23 @@ def run_doctor() -> int:
     return 0
 
 
+def run_catalog_validate(
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+) -> int:
+    from manim_studio.catalog import validate_catalog
+
+    result = validate_catalog(repo_root=repo_root, catalog_path=catalog_path)
+    if result.ok:
+        print(f"Catalog valid: {len(result.entries)} scene(s) registered.")
+        return 0
+
+    print("Catalog validation failed:")
+    for error in result.errors:
+        print(f"- {error}")
+    return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="studio",
@@ -179,6 +198,29 @@ def build_parser() -> argparse.ArgumentParser:
         "doctor",
         help="Report versions and validate required local rendering prerequisites.",
     )
+
+    catalog_parser = subparsers.add_parser(
+        "catalog",
+        help="Inspect and validate scene catalog metadata.",
+    )
+    catalog_subparsers = catalog_parser.add_subparsers(
+        dest="catalog_command",
+        required=True,
+    )
+    validate_parser = catalog_subparsers.add_parser(
+        "validate",
+        help="Validate catalog entries against files and scene classes.",
+    )
+    validate_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository root to validate from. Defaults to the current directory.",
+    )
+    validate_parser.add_argument(
+        "--catalog",
+        default=DEFAULT_CATALOG_PATH,
+        help=f"Catalog file path. Defaults to {DEFAULT_CATALOG_PATH}.",
+    )
     return parser
 
 
@@ -188,6 +230,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "doctor":
         return run_doctor()
+
+    if args.command == "catalog" and args.catalog_command == "validate":
+        return run_catalog_validate(
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+        )
 
     parser.error(f"unknown command: {args.command}")
     return 2

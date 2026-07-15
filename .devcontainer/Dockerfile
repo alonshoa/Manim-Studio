@@ -32,7 +32,8 @@ RUN apt-get update \
 
 RUN python -m pip install --no-cache-dir \
         manim==0.20.1 \
-        manim-slides==5.6.0
+        manim-slides==5.6.0 \
+        PyYAML==6.0.2
 
 RUN chown -R manimuser:manimuser /opt/venv /manim
 
