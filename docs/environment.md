@@ -44,6 +44,13 @@ studio doctor
 Expected checks include Python, Manim, Manim Slides, FFmpeg, LaTeX, XeLaTeX,
 `dvisvgm`, and Hebrew-capable font availability.
 
+To also verify migrated scene metadata, baseline paths, render command
+coverage, and font notes, run:
+
+```bash
+studio doctor --catalog
+```
+
 Render the minimal Cairo scene:
 
 ```bash
@@ -58,6 +65,9 @@ manim-slides render -ql examples/basic_slide.py BasicSlide
 
 Generated output under `media/`, `slides/`, and future `builds/` directories is
 local-only and ignored by Git.
+
+Curated baseline review frames belong under `baselines/` and may be tracked.
+Do not move full Manim output directories into the baseline tree.
 
 ## Out of Scope for Phase 1
 

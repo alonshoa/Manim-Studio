@@ -49,10 +49,26 @@ Each scene entry must include:
 `asset_notes` is optional and should briefly describe external images, fonts,
 data files, or generated assets the scene expects.
 
+Pilot scenes and migrated scenes should also include these optional planning
+fields when known:
+
+- `description`
+- `render_command`
+- `font_notes`
+- `parameter_notes`
+- `baseline_path`
+- `migration_notes`
+
 Use `renderer: manim` for normal Manim Community scenes and
 `renderer: manim-slides` for slide scenes that should be rendered through
 Manim Slides. `base_scene_type` should name the main scene base class such as
 `Scene`, `MovingCameraScene`, `ThreeDScene`, or `Slide`.
+
+`parameter_notes` should name the scene knobs that a maintainer can safely
+change: matrix values, vectors, graph ranges, tracker ranges, camera angles,
+font choices, and teaching intent. `baseline_path` should point at a tracked
+directory containing curated preview frames or a note describing the expected
+baseline captures.
 
 ## Assets And Imports
 
@@ -69,6 +85,11 @@ directory, local absolute paths, or generated render output.
 Migrate legacy scenes selectively. A migrated scene should first be copied into
 the new structure with minimal code changes, then registered in the catalog.
 Do not rewrite a scene into a new abstraction just to catalog it.
+
+Do not catalog mixed legacy scratch files directly. If a file contains unrelated
+tutorials, absolute-path asset experiments, and reusable ideas, extract or
+rewrite one coherent scene and document the parameter model in catalog metadata
+and scene notes.
 
 Before adding a migrated scene to a delivery deck, run catalog validation and a
 small render smoke check in the devcontainer. Larger render, build, and export

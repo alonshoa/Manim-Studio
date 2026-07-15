@@ -114,7 +114,11 @@ def _check_hebrew_fonts() -> CheckResult:
     )
 
 
-def run_doctor() -> int:
+def run_doctor(
+    include_catalog: bool = False,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+) -> int:
     checks: Sequence[Callable[[], CheckResult]] = (
         _check_python,
         lambda: _check_import("manim", "Python import: manim"),
@@ -163,9 +167,23 @@ def run_doctor() -> int:
             print(f"      Fix: {result.fix}")
 
     failures = [result for result in results if not result.ok]
+
+    catalog_exit_code = 0
+    if include_catalog:
+        print("\nCatalog metadata")
+        print("----------------")
+        catalog_exit_code = run_catalog_validate(
+            repo_root=repo_root,
+            catalog_path=catalog_path,
+            strict_metadata=True,
+        )
+
     if failures:
         print(f"\n{len(failures)} check(s) failed.")
         return 1
+
+    if catalog_exit_code:
+        return catalog_exit_code
 
     print("\nAll checks passed.")
     return 0
@@ -174,12 +192,18 @@ def run_doctor() -> int:
 def run_catalog_validate(
     repo_root: Path | str | None = None,
     catalog_path: Path | str | None = None,
+    strict_metadata: bool = False,
 ) -> int:
     from manim_studio.catalog import validate_catalog
 
-    result = validate_catalog(repo_root=repo_root, catalog_path=catalog_path)
+    result = validate_catalog(
+        repo_root=repo_root,
+        catalog_path=catalog_path,
+        strict_metadata=strict_metadata,
+    )
     if result.ok:
-        print(f"Catalog valid: {len(result.entries)} scene(s) registered.")
+        mode = " with strict metadata" if strict_metadata else ""
+        print(f"Catalog valid{mode}: {len(result.entries)} scene(s) registered.")
         return 0
 
     print("Catalog validation failed:")
@@ -194,9 +218,24 @@ def build_parser() -> argparse.ArgumentParser:
         description="Manim Studio project tools.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
-    subparsers.add_parser(
+    doctor_parser = subparsers.add_parser(
         "doctor",
         help="Report versions and validate required local rendering prerequisites.",
+    )
+    doctor_parser.add_argument(
+        "--catalog",
+        action="store_true",
+        help="Also run strict catalog metadata validation.",
+    )
+    doctor_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository root for --catalog validation. Defaults to the current directory.",
+    )
+    doctor_parser.add_argument(
+        "--catalog-path",
+        default=DEFAULT_CATALOG_PATH,
+        help=f"Catalog file path for --catalog validation. Defaults to {DEFAULT_CATALOG_PATH}.",
     )
 
     catalog_parser = subparsers.add_parser(
@@ -221,6 +260,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_CATALOG_PATH,
         help=f"Catalog file path. Defaults to {DEFAULT_CATALOG_PATH}.",
     )
+    validate_parser.add_argument(
+        "--strict-metadata",
+        action="store_true",
+        help="Require render commands, baseline paths, planning notes, and related metadata.",
+    )
     return parser
 
 
@@ -229,12 +273,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "doctor":
-        return run_doctor()
+        return run_doctor(
+            include_catalog=args.catalog,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog_path,
+        )
 
     if args.command == "catalog" and args.catalog_command == "validate":
         return run_catalog_validate(
             repo_root=args.repo_root,
             catalog_path=args.catalog,
+            strict_metadata=args.strict_metadata,
         )
 
     parser.error(f"unknown command: {args.command}")

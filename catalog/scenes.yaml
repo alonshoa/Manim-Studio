@@ -7,7 +7,13 @@ scenes:
     base_scene_type: Scene
     renderer: manim
     language: en
+    description: "Minimal Manim smoke scene for Cairo rendering."
     asset_notes: "No external assets."
+    font_notes: "No special fonts."
+    parameter_notes: "No scene parameters; fixed square-to-circle transform."
+    render_command: "manim -ql examples/basic_scene.py SquareToCircle"
+    baseline_path: baselines/examples/square_to_circle
+    migration_notes: "Repository-native example retained as the baseline catalog entry."
   - deck_id: examples
     scene_id: basic_slide
     source_path: examples/basic_slide.py
@@ -15,4 +21,52 @@ scenes:
     base_scene_type: Slide
     renderer: manim-slides
     language: en
+    description: "Minimal Manim Slides smoke scene."
     asset_notes: "No external assets."
+    font_notes: "No special fonts."
+    parameter_notes: "No scene parameters; fixed slide checkpoint flow."
+    render_command: "manim-slides render -ql examples/basic_slide.py BasicSlide"
+    baseline_path: baselines/examples/basic_slide
+    migration_notes: "Repository-native example retained as the baseline slide entry."
+  - deck_id: matrix_work
+    scene_id: vectors_ab_to_v
+    source_path: decks/matrix_work/vecs_slides.py
+    class_name: VectorsABtoV
+    base_scene_type: Slide
+    renderer: manim-slides
+    language: he
+    description: "Hebrew slide scene showing vector addition through components and tail-to-head motion."
+    asset_notes: "No external assets."
+    font_notes: "Uses DejaVu Sans for Hebrew text; verify Hebrew-capable fonts with studio doctor."
+    parameter_notes: "VECTOR_A, VECTOR_B, and VECTOR_V control the plotted vectors; algebra panel text must stay consistent with those values."
+    render_command: "manim-slides render -ql decks/matrix_work/vecs_slides.py VectorsABtoV"
+    baseline_path: baselines/matrix_work/vectors_ab_to_v
+    migration_notes: "Migrated selectively from legacy vecs_slides.py; preserved Hebrew/RTL and Slide checkpoints while removing unrelated scenes."
+  - deck_id: losses
+    scene_id: binary_cross_entropy
+    source_path: decks/losses/cross_entropy.py
+    class_name: BinaryCrossEntropyLoss
+    base_scene_type: Scene
+    renderer: manim
+    language: en
+    description: "Graph-heavy 2D scene explaining binary cross-entropy loss curves."
+    asset_notes: "No external assets."
+    font_notes: "Uses default Manim/LaTeX fonts."
+    parameter_notes: "DOT_RUN_TIME controls moving-dot pacing; x/y ranges define the visible probability and loss domain."
+    render_command: "manim -ql decks/losses/cross_entropy.py BinaryCrossEntropyLoss"
+    baseline_path: baselines/losses/binary_cross_entropy
+    migration_notes: "Migrated from legacy cross_entropy.py as a focused graph and updater pilot."
+  - deck_id: matrix_work
+    scene_id: parametric_curve_3d
+    source_path: decks/matrix_work/parametric_curve_3d.py
+    class_name: ParametricCurve3D
+    base_scene_type: ThreeDScene
+    renderer: manim
+    language: en
+    description: "Clean 3D parametric curve scene extracted from the legacy book_shelf.py experiment shelf."
+    asset_notes: "No external assets."
+    font_notes: "Uses default Manim fonts."
+    parameter_notes: "RADIUS, Z_SCALE, START_U, INITIAL_END_U, END_U, CAMERA_PHI, and CAMERA_THETA define curve shape, reveal range, and camera framing."
+    render_command: "manim -ql decks/matrix_work/parametric_curve_3d.py ParametricCurve3D"
+    baseline_path: baselines/matrix_work/parametric_curve_3d
+    migration_notes: "Do not catalog book_shelf.py directly; this is a cleaned scene with explicit parameters and no absolute-path assets."

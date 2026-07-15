@@ -24,8 +24,19 @@ REQUIRED_FIELDS = frozenset(
         "language",
     }
 )
-OPTIONAL_FIELDS = frozenset({"asset_notes"})
+OPTIONAL_FIELDS = frozenset(
+    {
+        "asset_notes",
+        "baseline_path",
+        "description",
+        "font_notes",
+        "migration_notes",
+        "parameter_notes",
+        "render_command",
+    }
+)
 SUPPORTED_RENDERERS = frozenset({"manim", "manim-slides"})
+RTL_LANGUAGES = frozenset({"he", "hebrew", "he-il", "rtl"})
 
 
 @dataclass(frozen=True)
@@ -38,6 +49,12 @@ class CatalogEntry:
     renderer: str
     language: str
     asset_notes: str | None = None
+    baseline_path: str | None = None
+    description: str | None = None
+    font_notes: str | None = None
+    migration_notes: str | None = None
+    parameter_notes: str | None = None
+    render_command: str | None = None
 
 
 @dataclass(frozen=True)
@@ -50,6 +67,7 @@ class CatalogValidationResult:
 def validate_catalog(
     repo_root: Path | str | None = None,
     catalog_path: Path | str | None = None,
+    strict_metadata: bool = False,
 ) -> CatalogValidationResult:
     root = Path.cwd() if repo_root is None else Path(repo_root)
     root = root.resolve()
@@ -63,7 +81,7 @@ def validate_catalog(
         return CatalogValidationResult(False, tuple(errors))
 
     entries = _parse_entries(raw_catalog, errors)
-    _validate_entries(root, entries, errors)
+    _validate_entries(root, entries, errors, strict_metadata=strict_metadata)
     return CatalogValidationResult(not errors, tuple(errors), tuple(entries))
 
 
@@ -126,9 +144,7 @@ def _parse_entries(raw_catalog: dict[str, Any], errors: list[str]) -> list[Catal
                 invalid_required_fields.append(field)
                 errors.append(f"{label}: '{field}' must be a non-empty string.")
 
-        asset_notes = item.get("asset_notes")
-        if asset_notes is not None and not isinstance(asset_notes, str):
-            errors.append(f"{label}: 'asset_notes' must be a string when provided.")
+        optional_values = _parse_optional_strings(item, label, errors)
 
         if item.get("renderer") not in SUPPORTED_RENDERERS:
             renderers = ", ".join(sorted(SUPPORTED_RENDERERS))
@@ -149,17 +165,43 @@ def _parse_entries(raw_catalog: dict[str, Any], errors: list[str]) -> list[Catal
                 base_scene_type=item["base_scene_type"].strip(),
                 renderer=item["renderer"].strip(),
                 language=item["language"].strip(),
-                asset_notes=asset_notes.strip() if isinstance(asset_notes, str) else None,
+                asset_notes=optional_values["asset_notes"],
+                baseline_path=optional_values["baseline_path"],
+                description=optional_values["description"],
+                font_notes=optional_values["font_notes"],
+                migration_notes=optional_values["migration_notes"],
+                parameter_notes=optional_values["parameter_notes"],
+                render_command=optional_values["render_command"],
             )
         )
 
     return entries
 
 
+def _parse_optional_strings(
+    item: dict[str, Any],
+    label: str,
+    errors: list[str],
+) -> dict[str, str | None]:
+    values: dict[str, str | None] = {}
+    for field in sorted(OPTIONAL_FIELDS):
+        value = item.get(field)
+        if value is None:
+            values[field] = None
+            continue
+        if not isinstance(value, str):
+            errors.append(f"{label}: '{field}' must be a string when provided.")
+            values[field] = None
+            continue
+        values[field] = value.strip()
+    return values
+
+
 def _validate_entries(
     repo_root: Path,
     entries: list[CatalogEntry],
     errors: list[str],
+    strict_metadata: bool,
 ) -> None:
     seen: set[tuple[str, str]] = set()
     for entry in entries:
@@ -176,7 +218,80 @@ def _validate_entries(
         if not _source_defines_class(source_path, entry.class_name, label, errors):
             continue
 
+        _validate_metadata(repo_root, source_path, entry, label, errors, strict_metadata)
         _import_source_file(repo_root, source_path, entry.class_name, label, errors)
+
+
+def _validate_metadata(
+    repo_root: Path,
+    source_path: Path,
+    entry: CatalogEntry,
+    label: str,
+    errors: list[str],
+    strict_metadata: bool,
+) -> None:
+    if entry.render_command is not None:
+        if entry.source_path not in entry.render_command:
+            errors.append(f"{label}: render_command must include source_path.")
+        if entry.class_name not in entry.render_command:
+            errors.append(f"{label}: render_command must include class_name.")
+
+    if entry.baseline_path is not None:
+        _resolve_repo_path(repo_root, entry.baseline_path, label, "baseline_path", errors)
+
+    if _uses_external_assets(source_path) and not entry.asset_notes:
+        errors.append(f"{label}: asset_notes must describe external assets.")
+
+    if _is_rtl_entry(entry) and not entry.font_notes:
+        errors.append(f"{label}: font_notes must describe Hebrew/RTL font requirements.")
+
+    if not strict_metadata:
+        return
+
+    required_metadata = (
+        "description",
+        "render_command",
+        "parameter_notes",
+        "baseline_path",
+        "migration_notes",
+    )
+    for field in required_metadata:
+        if not getattr(entry, field):
+            errors.append(f"{label}: {field} is required in strict metadata mode.")
+
+
+def _is_rtl_entry(entry: CatalogEntry) -> bool:
+    return entry.language.lower() in RTL_LANGUAGES
+
+
+def _uses_external_assets(source_path: Path) -> bool:
+    try:
+        source = source_path.read_text(encoding="utf-8")
+    except OSError:
+        return False
+    asset_markers = ("ImageMobject", "SVGMobject", "set_texture", "Code(")
+    return any(marker in source for marker in asset_markers)
+
+
+def _resolve_repo_path(
+    repo_root: Path,
+    repo_path: str,
+    label: str,
+    field_name: str,
+    errors: list[str],
+) -> Path | None:
+    resolved = (repo_root / repo_path).resolve()
+    try:
+        resolved.relative_to(repo_root)
+    except ValueError:
+        errors.append(f"{label}: {field_name} must stay inside the repository.")
+        return None
+
+    if not resolved.exists():
+        errors.append(f"{label}: {field_name} does not exist: {repo_path}.")
+        return None
+
+    return resolved
 
 
 def _resolve_source_path(
@@ -247,6 +362,16 @@ def _import_source_file(
     sys.path.insert(0, str(repo_root))
     try:
         spec.loader.exec_module(module)
+    except ModuleNotFoundError as exc:
+        if exc.name in {"manim", "manim_slides"}:
+            errors.append(
+                f"{label}: source file import failed because {exc.name!r} is not "
+                "installed. Run catalog validation inside the devcontainer or "
+                "install the pinned project dependencies."
+            )
+        else:
+            errors.append(f"{label}: source file import failed: {exc}.")
+        return None
     except Exception as exc:  # noqa: BLE001 - report scene import failures.
         errors.append(f"{label}: source file import failed: {exc}.")
         return None
