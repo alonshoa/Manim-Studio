@@ -13,7 +13,8 @@ construction, and tail-to-head animation.
 Main knobs:
 
 - `VECTOR_A`, `VECTOR_B`, and `VECTOR_V` control the plotted vectors.
-- `HEBREW_FONT` controls Hebrew text rendering.
+- `manim_kit.DEFAULT_THEME.hebrew_font` controls Hebrew text rendering through
+  the shared `hebrew_text` helper.
 - The algebra panel text must be kept in sync with the vector constants.
 
 Named beats:
@@ -27,7 +28,8 @@ Named beats:
 - `emphasis_loop`: looped emphasis on the resultant.
 
 Safe extensions: add more slide checkpoints, add more vector decomposition
-steps, or extract a helper only after two scenes share the same pattern.
+steps, or extract a helper only after two scenes share the same pattern or the
+helper isolates difficult behavior. See `docs/manim_kit.md`.
 
 ## BinaryCrossEntropyLoss
 

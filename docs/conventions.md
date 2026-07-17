@@ -10,7 +10,8 @@ validate them without rewriting the animation code.
 - `catalog/` stores lightweight registries such as `catalog/scenes.yaml`.
 - `decks/` stores presentation content grouped by deck ID.
 - `src/manim_kit/` stores reusable visual, layout, Hebrew/RTL, and diagram
-  helpers shared by scenes.
+  helpers shared by scenes. See `docs/manim_kit.md` for the supported public
+  API and extraction rules.
 - `src/manim_studio/` stores project tooling such as catalog validation,
   build metadata, artifact inspection, and future orchestration helpers.
 - `scripts/` stores small repository utilities that are not public package APIs.
@@ -120,6 +121,11 @@ Do not catalog mixed legacy scratch files directly. If a file contains unrelated
 tutorials, absolute-path asset experiments, and reusable ideas, extract or
 rewrite one coherent scene and document the parameter model in catalog metadata
 and scene notes.
+
+Only extract a helper into `manim_kit` when it recurs across scenes or
+encapsulates difficult behavior such as Hebrew font setup, RTL alignment, slide
+base behavior, or review-panel framing. Keep one-off teaching details inside the
+scene.
 
 Before adding a migrated scene to a delivery deck, run catalog validation and a
 small render smoke check in the devcontainer. Larger render, build, and export

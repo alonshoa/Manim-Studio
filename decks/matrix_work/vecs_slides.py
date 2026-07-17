@@ -1,18 +1,16 @@
 from manim import *
-from manim_slides import Slide
 
-from manim_kit.beats import BeatMixin
+from manim_kit import DEFAULT_THEME, HebrewSlide, explanation_panel, hebrew_text
 
 
-class VectorsABtoV(BeatMixin, Slide):
+class VectorsABtoV(HebrewSlide):
     VECTOR_A = (2, 2)
     VECTOR_B = (-1, 1)
     VECTOR_V = (1, 3)
-    HEBREW_FONT = "DejaVu Sans"
 
     def construct(self):
         self.beat("intro", label="Title")
-        title = Text("וקטורים", font=self.HEBREW_FONT).scale(1.2)
+        title = hebrew_text("וקטורים", scale=DEFAULT_THEME.title_scale)
         self.play(FadeIn(title))
         self.wait(0.6)
         self.play(FadeOut(title))
@@ -29,10 +27,10 @@ class VectorsABtoV(BeatMixin, Slide):
         self.play(Create(axes))
         self.beat("components", label="Show vector components")
 
-        subtitle = Text(
+        subtitle = hebrew_text(
             "פירוק לרכיבים: a ו-b",
-            font=self.HEBREW_FONT,
-        ).scale(0.45)
+            scale=DEFAULT_THEME.subtitle_scale,
+        )
         subtitle.next_to(axes, UP, buff=0.2)
         self.play(FadeIn(subtitle))
 
@@ -43,25 +41,18 @@ class VectorsABtoV(BeatMixin, Slide):
         self.beat("algebra_panel", label="Introduce algebra panel")
 
         right_col = self._make_algebra_panel()
-        right_col.to_edge(RIGHT, buff=0.6).shift(UP * 0.8)
-        if right_col.width > 4.6:
-            right_col.set_width(4.6)
-        box = SurroundingRectangle(
-            right_col,
-            color=GREY_B,
-            stroke_opacity=0.6,
-            corner_radius=0.1,
-            buff=0.25,
-        )
+        panel = explanation_panel(right_col)
+        panel.to_edge(RIGHT, buff=0.6).shift(UP * 0.8)
+        box = panel[0]
         self.play(FadeIn(box), Write(right_col[0]))
         self.beat("tail_to_head", label="Move b to the head of a")
 
         a_tip = axes.c2p(*self.VECTOR_A)
         shift_vec = a_tip - axes.c2p(0, 0)
-        move_caption = Text(
+        move_caption = hebrew_text(
             "חיבור קצה-לקצה: מזיזים את b לראש של a",
-            font=self.HEBREW_FONT,
-        ).scale(0.4)
+            scale=DEFAULT_THEME.caption_scale,
+        )
         move_caption.next_to(axes, DOWN, buff=0.2)
         self.play(FadeIn(move_caption))
         self.play(b_group.animate.shift(shift_vec), run_time=1.0)
