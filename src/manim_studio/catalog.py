@@ -64,6 +64,39 @@ class CatalogValidationResult:
     entries: tuple[CatalogEntry, ...] = ()
 
 
+def entry_target(entry: CatalogEntry) -> str:
+    return f"{entry.deck_id}/{entry.scene_id}"
+
+
+def list_decks(entries: tuple[CatalogEntry, ...] | list[CatalogEntry]) -> tuple[str, ...]:
+    return tuple(sorted({entry.deck_id for entry in entries}))
+
+
+def list_deck_entries(
+    entries: tuple[CatalogEntry, ...] | list[CatalogEntry],
+    deck_id: str,
+) -> tuple[CatalogEntry, ...]:
+    return tuple(entry for entry in entries if entry.deck_id == deck_id)
+
+
+def find_scene_entry(
+    entries: tuple[CatalogEntry, ...] | list[CatalogEntry],
+    deck_id: str,
+    scene_id: str,
+) -> CatalogEntry | None:
+    for entry in entries:
+        if entry.deck_id == deck_id and entry.scene_id == scene_id:
+            return entry
+    return None
+
+
+def parse_scene_target(target: str) -> tuple[str, str]:
+    parts = target.split("/")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise ValueError("scene target must use '<deck_id>/<scene_id>' syntax")
+    return parts[0], parts[1]
+
+
 def validate_catalog(
     repo_root: Path | str | None = None,
     catalog_path: Path | str | None = None,
@@ -83,6 +116,65 @@ def validate_catalog(
     entries = _parse_entries(raw_catalog, errors)
     _validate_entries(root, entries, errors, strict_metadata=strict_metadata)
     return CatalogValidationResult(not errors, tuple(errors), tuple(entries))
+
+
+def validate_catalog_selection(
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    deck_id: str | None = None,
+    scene_id: str | None = None,
+    strict_metadata: bool = False,
+) -> CatalogValidationResult:
+    root = Path.cwd() if repo_root is None else Path(repo_root)
+    root = root.resolve()
+    path = Path(catalog_path) if catalog_path is not None else CATALOG_PATH
+    if not path.is_absolute():
+        path = root / path
+
+    errors: list[str] = []
+    raw_catalog = _load_catalog(path, errors)
+    if raw_catalog is None:
+        return CatalogValidationResult(False, tuple(errors))
+
+    entries = _parse_entries(raw_catalog, errors)
+    if errors:
+        return CatalogValidationResult(False, tuple(errors), tuple(entries))
+
+    selected_entries = _select_entries(entries, deck_id=deck_id, scene_id=scene_id)
+    _validate_entries(root, selected_entries, errors, strict_metadata=strict_metadata)
+    return CatalogValidationResult(not errors, tuple(errors), tuple(selected_entries))
+
+
+def load_catalog_entries(
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+) -> CatalogValidationResult:
+    root = Path.cwd() if repo_root is None else Path(repo_root)
+    root = root.resolve()
+    path = Path(catalog_path) if catalog_path is not None else CATALOG_PATH
+    if not path.is_absolute():
+        path = root / path
+
+    errors: list[str] = []
+    raw_catalog = _load_catalog(path, errors)
+    if raw_catalog is None:
+        return CatalogValidationResult(False, tuple(errors))
+
+    entries = _parse_entries(raw_catalog, errors)
+    return CatalogValidationResult(not errors, tuple(errors), tuple(entries))
+
+
+def _select_entries(
+    entries: list[CatalogEntry],
+    deck_id: str | None,
+    scene_id: str | None,
+) -> list[CatalogEntry]:
+    selected = entries
+    if deck_id is not None:
+        selected = [entry for entry in selected if entry.deck_id == deck_id]
+    if scene_id is not None:
+        selected = [entry for entry in selected if entry.scene_id == scene_id]
+    return selected
 
 
 def _load_catalog(path: Path, errors: list[str]) -> dict[str, Any] | None:

@@ -16,6 +16,16 @@ Main knobs:
 - `HEBREW_FONT` controls Hebrew text rendering.
 - The algebra panel text must be kept in sync with the vector constants.
 
+Named beats:
+
+- `intro`: title.
+- `axes`: coordinate plane.
+- `components`: show vector components.
+- `algebra_panel`: introduce the algebra panel.
+- `tail_to_head`: move vector `b` to the head of vector `a`.
+- `resultant`: reveal vector `v`.
+- `emphasis_loop`: looped emphasis on the resultant.
+
 Safe extensions: add more slide checkpoints, add more vector decomposition
 steps, or extract a helper only after two scenes share the same pattern.
 

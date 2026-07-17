@@ -1,19 +1,22 @@
 from manim import *
 from manim_slides import Slide
 
+from manim_kit.beats import BeatMixin
 
-class VectorsABtoV(Slide):
+
+class VectorsABtoV(BeatMixin, Slide):
     VECTOR_A = (2, 2)
     VECTOR_B = (-1, 1)
     VECTOR_V = (1, 3)
     HEBREW_FONT = "DejaVu Sans"
 
     def construct(self):
+        self.beat("intro", label="Title")
         title = Text("וקטורים", font=self.HEBREW_FONT).scale(1.2)
         self.play(FadeIn(title))
         self.wait(0.6)
         self.play(FadeOut(title))
-        self.next_slide()
+        self.beat("axes", label="Coordinate plane")
 
         axes = Axes(
             x_range=[-3, 6, 1],
@@ -24,7 +27,7 @@ class VectorsABtoV(Slide):
             tips=True,
         ).to_edge(LEFT, buff=0.5)
         self.play(Create(axes))
-        self.next_slide()
+        self.beat("components", label="Show vector components")
 
         subtitle = Text(
             "פירוק לרכיבים: a ו-b",
@@ -37,7 +40,7 @@ class VectorsABtoV(Slide):
         b_group = self._make_vector(axes, self.VECTOR_B, GREEN, r"\vec b")
         self.play(GrowArrow(a_group[0]), FadeIn(a_group[1:]))
         self.play(GrowArrow(b_group[0]), FadeIn(b_group[1:]))
-        self.next_slide()
+        self.beat("algebra_panel", label="Introduce algebra panel")
 
         right_col = self._make_algebra_panel()
         right_col.to_edge(RIGHT, buff=0.6).shift(UP * 0.8)
@@ -51,7 +54,7 @@ class VectorsABtoV(Slide):
             buff=0.25,
         )
         self.play(FadeIn(box), Write(right_col[0]))
-        self.next_slide()
+        self.beat("tail_to_head", label="Move b to the head of a")
 
         a_tip = axes.c2p(*self.VECTOR_A)
         shift_vec = a_tip - axes.c2p(0, 0)
@@ -62,16 +65,15 @@ class VectorsABtoV(Slide):
         move_caption.next_to(axes, DOWN, buff=0.2)
         self.play(FadeIn(move_caption))
         self.play(b_group.animate.shift(shift_vec), run_time=1.0)
-        self.next_slide()
+        self.beat("resultant", label="Reveal resultant vector")
 
         v_group = self._make_vector(axes, self.VECTOR_V, YELLOW, r"\vec v")
         v_group[0].set_stroke(width=8, opacity=0.65)
         self.play(Flash(axes.c2p(*self.VECTOR_V), color=YELLOW, flash_radius=0.6))
         self.play(Create(v_group[0]), FadeIn(v_group[1:]))
         self.play(Write(right_col[1:]))
-        self.next_slide()
 
-        self.next_slide(loop=True)
+        self.beat("emphasis_loop", label="Emphasize resultant", loop=True)
         self.play(Indicate(v_group[0], color=YELLOW), run_time=1.2)
 
     def _make_vector(self, axes, vector, color, label_text):

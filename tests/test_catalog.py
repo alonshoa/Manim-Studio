@@ -8,7 +8,15 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from manim_studio.catalog import validate_catalog
+from manim_studio.catalog import (
+    find_scene_entry,
+    load_catalog_entries,
+    list_deck_entries,
+    list_decks,
+    parse_scene_target,
+    validate_catalog,
+    validate_catalog_selection,
+)
 from manim_studio.cli import main
 
 
@@ -57,6 +65,111 @@ class CatalogValidationTests(unittest.TestCase):
         self.assertTrue(result.ok, result.errors)
         self.assertEqual((), result.errors)
         self.assertEqual(1, len(result.entries))
+
+    def test_catalog_lookup_helpers(self) -> None:
+        with CatalogFixture() as fixture:
+            fixture.write_scene("scene.py", "class DemoScene:\n    pass\n")
+            fixture.write_scene("other.py", "class OtherScene:\n    pass\n")
+            fixture.write_catalog(
+                """
+                version: 1
+                scenes:
+                  - deck_id: demo
+                    scene_id: intro
+                    source_path: scene.py
+                    class_name: DemoScene
+                    base_scene_type: Scene
+                    renderer: manim
+                    language: en
+                  - deck_id: other
+                    scene_id: intro
+                    source_path: other.py
+                    class_name: OtherScene
+                    base_scene_type: Scene
+                    renderer: manim
+                    language: en
+                """
+            )
+
+            result = validate_catalog(fixture.root)
+
+        self.assertTrue(result.ok, result.errors)
+        self.assertEqual(("demo", "other"), list_decks(result.entries))
+        self.assertEqual(1, len(list_deck_entries(result.entries, "demo")))
+        self.assertIsNotNone(find_scene_entry(result.entries, "demo", "intro"))
+        self.assertIsNone(find_scene_entry(result.entries, "demo", "missing"))
+        self.assertEqual(("demo", "intro"), parse_scene_target("demo/intro"))
+
+    def test_invalid_scene_target_syntax(self) -> None:
+        with self.assertRaisesRegex(ValueError, "scene target"):
+            parse_scene_target("demo")
+
+    def test_load_catalog_entries_does_not_import_source_file(self) -> None:
+        with CatalogFixture() as fixture:
+            fixture.write_scene(
+                "scene.py",
+                "import module_that_should_not_exist\n\nclass DemoScene:\n    pass\n",
+            )
+            fixture.write_catalog(
+                """
+                version: 1
+                scenes:
+                  - deck_id: demo
+                    scene_id: intro
+                    source_path: scene.py
+                    class_name: DemoScene
+                    base_scene_type: Scene
+                    renderer: manim
+                    language: en
+                """
+            )
+
+            loaded = load_catalog_entries(fixture.root)
+            validated = validate_catalog(fixture.root)
+
+        self.assertTrue(loaded.ok, loaded.errors)
+        self.assertFalse(validated.ok)
+        self.assert_error_contains(validated, "source file import failed")
+
+    def test_validate_catalog_selection_ignores_unselected_import_failures(self) -> None:
+        with CatalogFixture() as fixture:
+            fixture.write_scene("scene.py", "class DemoScene:\n    pass\n")
+            fixture.write_scene(
+                "broken.py",
+                "import module_that_should_not_exist\n\nclass BrokenScene:\n    pass\n",
+            )
+            fixture.write_catalog(
+                """
+                version: 1
+                scenes:
+                  - deck_id: demo
+                    scene_id: intro
+                    source_path: scene.py
+                    class_name: DemoScene
+                    base_scene_type: Scene
+                    renderer: manim
+                    language: en
+                  - deck_id: other
+                    scene_id: broken
+                    source_path: broken.py
+                    class_name: BrokenScene
+                    base_scene_type: Scene
+                    renderer: manim
+                    language: en
+                """
+            )
+
+            selected = validate_catalog_selection(
+                fixture.root,
+                deck_id="demo",
+                scene_id="intro",
+            )
+            all_entries = validate_catalog(fixture.root)
+
+        self.assertTrue(selected.ok, selected.errors)
+        self.assertEqual(1, len(selected.entries))
+        self.assertFalse(all_entries.ok)
+        self.assert_error_contains(all_entries, "source file import failed")
 
     def test_valid_catalog_with_planning_metadata(self) -> None:
         with CatalogFixture() as fixture:

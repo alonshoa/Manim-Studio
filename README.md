@@ -4,8 +4,9 @@ A local, reproducible workspace for building educational presentations, animatio
 
 This project is intended to become the main home for Manim-based presentation work: from individual visual explanations and reusable animation components to complete teaching decks with structured rendering, review artifacts, and future AI-assisted workflows.
 
-«Status: early foundation stage.
-The repository currently defines the architecture and working principles before importing existing scenes.»
+Status: early foundation stage.
+The repository now includes a scene catalog, a reusable Studio CLI, render
+profiles, and isolated build directories for registered pilot scenes.
 
 ---
 
@@ -261,13 +262,25 @@ Initial milestones
 
 Create a single command interface for common operations.
 
-Examples:
+Implemented commands:
 
 studio list
-studio render vectors/vector_intro --profile draft
-studio build vectors --profile review
+studio validate examples/square_to_circle
+studio beats matrix_work/vectors_ab_to_v
+studio render examples/square_to_circle --profile draft
+studio render matrix_work/vectors_ab_to_v --profile draft --beat resultant
+studio build examples --profile review
 studio inspect <build-id>
-studio export vectors --to html
+
+Registered pilot targets include:
+
+- examples/square_to_circle
+- examples/basic_slide
+- matrix_work/vectors_ab_to_v
+- matrix_work/parametric_curve_3d
+- losses/binary_cross_entropy
+
+Export commands are planned but not implemented yet.
 
 4. Isolated builds and artifacts
 
@@ -277,9 +290,13 @@ studio export vectors --to html
 
 5. Named beats and partial rendering
 
-- Introduce optional named beats for long scenes.
-- Connect beats to slide sections where possible.
-- Support targeted review and rendering of selected parts.
+- Optional named beats are available through `manim_kit.beats.BeatMixin`.
+- `studio beats <deck>/<scene>` lists discoverable beat IDs and labels.
+- `studio render <deck>/<scene> --beat <beat-id>` uses Manim sections for a
+  targeted iteration workflow and records beat metadata with the build.
+- Targeted rendering is section-based rather than arbitrary frame slicing; if a
+  scene cannot be isolated cleanly, render the full scene with saved sections
+  and review the selected section artifact.
 
 6. Reusable presentation kit
 

@@ -70,6 +70,36 @@ font choices, and teaching intent. `baseline_path` should point at a tracked
 directory containing curated preview frames or a note describing the expected
 baseline captures.
 
+## Named Beats
+
+A beat is an optional named conceptual segment inside a scene. Use beats when a
+scene is long enough that reviewing or rendering the whole thing is too slow or
+too vague. Beat IDs should describe teaching intent, such as `intro`,
+`tail_to_head`, or `resultant`, rather than implementation mechanics.
+
+Scene code remains the source of truth. Add beats with `BeatMixin` and simple
+literal calls that Studio can inspect without rendering:
+
+```python
+from manim_kit.beats import BeatMixin
+from manim_slides import Slide
+
+
+class VectorScene(BeatMixin, Slide):
+    def construct(self):
+        self.beat("intro", label="Title")
+        ...
+        self.beat("resultant", label="Reveal resultant vector")
+```
+
+Beat IDs use lowercase ASCII snake_case or kebab-case, and should stay stable
+after introduction because build artifacts and review notes may reference them.
+For slide scenes, `beat()` preserves ordinary `next_slide()` boundaries after
+the first beat. For regular Manim scenes, it maps to named Manim sections.
+Targeted rendering is section-based; if a beat depends on earlier scene state,
+render the full scene with saved sections and review the selected section
+artifact.
+
 ## Assets And Imports
 
 Deck-specific assets belong next to the deck, typically under
