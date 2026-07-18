@@ -9,6 +9,7 @@ description = "Local reproducible workspace for Manim presentation work."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+  "mcp>=1.28,<2",
   "manim==0.20.1",
   "manim-slides==5.6.0",
   "PyYAML==6.0.2",
@@ -20,6 +21,7 @@ dev = [
 ]
 
 [project.scripts]
+manim-mcp = "manim_mcp.server:main"
 studio = "manim_studio.cli:main"
 
 [tool.setuptools.packages.find]
