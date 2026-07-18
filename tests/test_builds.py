@@ -40,6 +40,7 @@ class BuildServiceTests(unittest.TestCase):
     def test_render_scene_creates_unique_builds_and_logs_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
+            write_scene_files(root)
             runner = FakeRunner(returncode=0, stdout="ok\n")
 
             first = render_scene(root, manim_entry(), get_profile("draft"), runner=runner)
@@ -59,9 +60,10 @@ class BuildServiceTests(unittest.TestCase):
     def test_failed_render_preserves_diagnostics(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
+            write_scene_files(root)
             runner = FakeRunner(returncode=2, stderr="render failed\n")
 
-            result = render_scene(root, manim_entry(), get_profile("review"), runner=runner)
+            result = render_scene(root, manim_entry(), get_profile("draft"), runner=runner)
 
             self.assertEqual("failed", result.status)
             self.assertEqual(2, result.returncode)
@@ -69,10 +71,13 @@ class BuildServiceTests(unittest.TestCase):
             result_json = read_json(result.build_dir / "result.json")
             self.assertEqual("failed", result_json["status"])
             self.assertEqual("demo/intro", result_json["target"])
+            manifest = read_json(result.build_dir / "manifest.json")
+            self.assertEqual("render_failed", manifest["failure_class"])
 
     def test_targeted_render_records_beat_metadata_and_env(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
+            write_scene_files(root)
             runner = FakeRunner(returncode=0, stdout="ok\n")
 
             result = render_scene(
@@ -94,10 +99,105 @@ class BuildServiceTests(unittest.TestCase):
                 [{"id": "result", "label": "Show result", "line": 12}],
                 beats_json["beats"],
             )
+            manifest = read_json(result.build_dir / "manifest.json")
+            self.assertEqual(
+                [{"id": "result", "label": "Show result", "line": 12}],
+                manifest["beats"],
+            )
+
+    def test_preflight_failure_writes_manifest_and_skips_render(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            runner = FakeRunner(returncode=0)
+
+            result = render_scene(root, manim_entry(), get_profile("draft"), runner=runner)
+
+            manifest = read_json(result.build_dir / "manifest.json")
+
+        self.assertEqual("failed", result.status)
+        self.assertEqual([], runner.commands)
+        self.assertEqual("validation_failed", manifest["failure_class"])
+        self.assertFalse(manifest["preflight"]["ok"])
+
+    def test_force_records_override_and_runs_after_preflight_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            runner = FakeRunner(returncode=0)
+
+            result = render_scene(
+                root,
+                manim_entry(),
+                get_profile("draft"),
+                runner=runner,
+                force=True,
+            )
+
+            manifest = read_json(result.build_dir / "manifest.json")
+
+        self.assertEqual("success", result.status)
+        self.assertEqual(1, len(runner.commands))
+        self.assertTrue(manifest["override"]["force"])
+        self.assertFalse(manifest["preflight"]["ok"])
+
+    def test_review_render_runs_smoke_before_main_render(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+            runner = FakeRunner(returncode=0)
+
+            result = render_scene(root, manim_entry(), get_profile("review"), runner=runner)
+            manifest = read_json(result.build_dir / "manifest.json")
+
+        self.assertEqual("success", result.status)
+        self.assertEqual(2, len(runner.commands))
+        self.assertIn("-ql", runner.commands[0])
+        self.assertIn("-qm", runner.commands[1])
+        self.assertEqual(0, manifest["smoke"]["returncode"])
+
+    def test_smoke_failure_blocks_expensive_render(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+            runner = SequencedRunner([2], stderr="smoke failed\n")
+
+            result = render_scene(root, manim_entry(), get_profile("final"), runner=runner)
+            manifest = read_json(result.build_dir / "manifest.json")
+            smoke_stderr = (result.build_dir / "smoke_stderr.log").read_text()
+
+        self.assertEqual("failed", result.status)
+        self.assertEqual(1, len(runner.commands))
+        self.assertEqual("smoke_render_failed", manifest["failure_class"])
+        self.assertEqual("smoke failed\n", smoke_stderr)
+
+    def test_successful_review_build_records_review_artifacts(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+            runner = FakeRunner(returncode=0)
+
+            result = render_scene(
+                root,
+                manim_entry(),
+                get_profile("review"),
+                runner=runner,
+                artifact_generator=fake_review_artifacts,
+            )
+            artifacts = read_json(result.build_dir / "artifacts.json")["artifacts"]
+
+        self.assertEqual("success", result.status)
+        self.assertIn(
+            {"kind": "review-frame", "path": "review/frames/frame_001.png"},
+            artifacts,
+        )
+        self.assertIn(
+            {"kind": "contact-sheet", "path": "review/contact_sheet.png"},
+            artifacts,
+        )
 
     def test_build_deck_runs_entries_serially_and_writes_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
+            write_scene_files(root)
             runner = FakeRunner(returncode=0, stdout="ok\n")
 
             result = build_deck(
@@ -111,7 +211,9 @@ class BuildServiceTests(unittest.TestCase):
             self.assertEqual("success", result.status)
             self.assertEqual(
                 [
+                    ["manim", "-ql"],
                     ["manim", "-qm"],
+                    ["manim-slides", "render"],
                     ["manim-slides", "render"],
                 ],
                 [command[:2] for command in runner.commands],
@@ -149,6 +251,24 @@ class FakeRunner:
         )
 
 
+class SequencedRunner(FakeRunner):
+    def __init__(self, returncodes: list[int], stdout: str = "", stderr: str = "") -> None:
+        super().__init__(returncodes[0], stdout=stdout, stderr=stderr)
+        self.returncodes = returncodes
+
+    def __call__(self, command, **kwargs):
+        self.returncode = self.returncodes[min(len(self.commands), len(self.returncodes) - 1)]
+        return super().__call__(command, **kwargs)
+
+
+def fake_review_artifacts(build_dir: Path, review_dir: Path) -> tuple[bool, str]:
+    frames_dir = review_dir / "frames"
+    frames_dir.mkdir(parents=True, exist_ok=True)
+    (frames_dir / "frame_001.png").write_bytes(b"fake png")
+    (review_dir / "contact_sheet.png").write_bytes(b"fake png")
+    return True, ""
+
+
 def manim_entry() -> CatalogEntry:
     return CatalogEntry(
         deck_id="demo",
@@ -175,6 +295,11 @@ def slides_entry() -> CatalogEntry:
 
 def read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def write_scene_files(root: Path) -> None:
+    (root / "scene.py").write_text("class DemoScene:\n    pass\n", encoding="utf-8")
+    (root / "slide.py").write_text("class DemoSlide:\n    pass\n", encoding="utf-8")
 
 
 if __name__ == "__main__":

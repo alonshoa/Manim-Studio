@@ -169,7 +169,7 @@ class StudioCliTests(unittest.TestCase):
                 )
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(2, len(runner.commands))
+        self.assertEqual(4, len(runner.commands))
         self.assertIn("Deck build success:", output.getvalue())
 
     def test_build_deck_ignores_unrelated_catalog_import_failure(self) -> None:
@@ -186,8 +186,61 @@ class StudioCliTests(unittest.TestCase):
                 )
 
         self.assertEqual(0, exit_code)
-        self.assertEqual(2, len(runner.commands))
+        self.assertEqual(4, len(runner.commands))
         self.assertIn("Deck build success:", output.getvalue())
+
+    def test_inspect_reports_manifest_validation_failure(self) -> None:
+        with StudioFixture() as fixture:
+            fixture.add_selected_broken_scene()
+            runner = FakeRunner(returncode=0)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = run_render(
+                    "demo/broken",
+                    "draft",
+                    repo_root=fixture.root,
+                    runner=runner,
+                )
+
+            build_id = output.getvalue().splitlines()[0].split(": ", maxsplit=1)[1]
+            inspect_output = io.StringIO()
+            with contextlib.redirect_stdout(inspect_output):
+                inspect_exit = main(
+                    ["inspect", build_id, "--repo-root", str(fixture.root)]
+                )
+
+        self.assertEqual(1, exit_code)
+        self.assertEqual([], runner.commands)
+        self.assertEqual(0, inspect_exit)
+        self.assertIn("Failure class: validation_failed", inspect_output.getvalue())
+        self.assertIn("Preflight: failed", inspect_output.getvalue())
+        self.assertIn("source_import_failed", inspect_output.getvalue())
+
+    def test_force_records_override_and_runs_selected_broken_scene(self) -> None:
+        with StudioFixture() as fixture:
+            fixture.add_selected_broken_scene()
+            runner = FakeRunner(returncode=0)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = run_render(
+                    "demo/broken",
+                    "draft",
+                    repo_root=fixture.root,
+                    force=True,
+                    runner=runner,
+                )
+
+            build_id = output.getvalue().splitlines()[0].split(": ", maxsplit=1)[1]
+            inspect_output = io.StringIO()
+            with contextlib.redirect_stdout(inspect_output):
+                inspect_exit = main(
+                    ["inspect", build_id, "--repo-root", str(fixture.root)]
+                )
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(1, len(runner.commands))
+        self.assertEqual(0, inspect_exit)
+        self.assertIn("Override: force", inspect_output.getvalue())
 
 
 class StudioFixture:
@@ -261,6 +314,39 @@ class StudioFixture:
                 renderer: manim-slides
                 language: en
               - deck_id: other
+                scene_id: broken
+                source_path: broken.py
+                class_name: BrokenScene
+                base_scene_type: Scene
+                renderer: manim
+                language: en
+            """
+        )
+
+    def add_selected_broken_scene(self) -> None:
+        self.write_scene(
+            "broken.py",
+            "import module_that_should_not_exist\n\nclass BrokenScene:\n    pass\n",
+        )
+        self.write_catalog(
+            """
+            version: 1
+            scenes:
+              - deck_id: demo
+                scene_id: intro
+                source_path: scene.py
+                class_name: DemoScene
+                base_scene_type: Scene
+                renderer: manim
+                language: en
+              - deck_id: demo
+                scene_id: slides
+                source_path: slide.py
+                class_name: DemoSlide
+                base_scene_type: Slide
+                renderer: manim-slides
+                language: en
+              - deck_id: demo
                 scene_id: broken
                 source_path: broken.py
                 class_name: BrokenScene

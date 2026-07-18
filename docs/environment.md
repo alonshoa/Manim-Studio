@@ -18,9 +18,13 @@ Install these host tools:
 Open the repository in VS Code, run **Dev Containers: Reopen in Container**, and
 let the container build from `.devcontainer/Dockerfile`.
 
-The devcontainer post-create step installs the local `studio` package into the
-container virtual environment in editable mode without reinstalling dependencies,
-because the pinned Manim runtime is already baked into the image.
+The devcontainer post-create step installs the local `studio` package and dev
+test tools into the container virtual environment in editable mode. For local
+non-container development, install the same test path with:
+
+```bash
+python -m pip install -e ".[dev]"
+```
 
 ## Pinned Runtime
 
@@ -51,6 +55,12 @@ coverage, and font notes, run:
 studio doctor --catalog
 ```
 
+Run the repository test suite:
+
+```bash
+pytest tests -q
+```
+
 Render the minimal Cairo scene:
 
 ```bash
@@ -68,6 +78,20 @@ local-only and ignored by Git.
 
 Curated baseline review frames belong under `baselines/` and may be tracked.
 Do not move full Manim output directories into the baseline tree.
+
+## Build Preflight And Review Artifacts
+
+`studio render` and `studio build` write an inspectable build directory for
+every selected scene. Each scene build includes the compatibility files
+`result.json` and `artifacts.json`, plus a canonical `manifest.json` with
+preflight issues, command context, smoke-render status, logs, override flags,
+beat metadata, and artifact paths.
+
+Review and final builds run a draft-quality smoke render before the expensive
+profile render. Preflight failures stop the build unless `--force` is provided;
+smoke render failures always stop review/final rendering. Successful review
+renders produce representative PNG frames and `review/contact_sheet.png` when
+FFmpeg can extract frames from the rendered video.
 
 ## Out of Scope for Phase 1
 

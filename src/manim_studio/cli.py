@@ -287,11 +287,12 @@ def run_render(
     catalog_path: Path | str | None = None,
     builds_root: Path | str = "builds",
     beat_id: str | None = None,
+    force: bool = False,
     runner=None,
 ) -> int:
     from manim_studio.builds import render_scene
     from manim_studio.beats import beat_by_id, beats_to_json, discover_entry_beats
-    from manim_studio.catalog import parse_scene_target, validate_catalog_selection
+    from manim_studio.catalog import find_scene_entry, load_catalog_entries, parse_scene_target
     from manim_studio.profiles import get_profile
 
     root = _repo_root(repo_root)
@@ -302,20 +303,15 @@ def run_render(
         print(str(exc))
         return 1
 
-    result = validate_catalog_selection(
-        repo_root=root,
-        catalog_path=catalog_path,
-        deck_id=deck_id,
-        scene_id=scene_id,
-    )
+    result = load_catalog_entries(repo_root=root, catalog_path=catalog_path)
     if not result.ok:
         _print_catalog_errors(result.errors)
         return 1
 
-    if not result.entries:
+    entry = find_scene_entry(result.entries, deck_id, scene_id)
+    if entry is None:
         print(f"Target not found: {target}")
         return 1
-    entry = result.entries[0]
 
     beats = None
     if beat_id is not None:
@@ -345,6 +341,7 @@ def run_render(
         builds_root=builds_root,
         beat_id=beat_id,
         beats=beats_to_json(beats) if beats is not None else None,
+        force=force,
         **kwargs,
     )
     print(f"Build {build_result.status}: {build_result.build_id}")
@@ -404,10 +401,11 @@ def run_build(
     repo_root: Path | str | None = None,
     catalog_path: Path | str | None = None,
     builds_root: Path | str = "builds",
+    force: bool = False,
     runner=None,
 ) -> int:
     from manim_studio.builds import build_deck
-    from manim_studio.catalog import validate_catalog_selection
+    from manim_studio.catalog import list_deck_entries, load_catalog_entries
     from manim_studio.profiles import get_profile
 
     if "/" in deck_id:
@@ -421,16 +419,13 @@ def run_build(
         print(str(exc))
         return 1
 
-    result = validate_catalog_selection(
-        repo_root=root,
-        catalog_path=catalog_path,
-        deck_id=deck_id,
-    )
+    result = load_catalog_entries(repo_root=root, catalog_path=catalog_path)
     if not result.ok:
         _print_catalog_errors(result.errors)
         return 1
 
-    if not result.entries:
+    entries = list_deck_entries(result.entries, deck_id)
+    if not entries:
         print(f"Target not found: {deck_id}")
         return 1
 
@@ -440,9 +435,10 @@ def run_build(
     build_result = build_deck(
         root,
         deck_id,
-        result.entries,
+        entries,
         profile,
         builds_root=builds_root,
+        force=force,
         **kwargs,
     )
     print(f"Deck build {build_result.status}: {build_result.build_id}")
@@ -472,7 +468,35 @@ def run_inspect(
     print(f"Target: {result.get('target', 'unknown')}")
     print(f"Profile: {result.get('profile', 'unknown')}")
     print(f"Status: {result.get('status', 'unknown')}")
+    if "failure_class" in result:
+        print(f"Failure class: {result['failure_class']}")
     print(f"Return code: {result.get('returncode', 'unknown')}")
+    override = result.get("override")
+    if isinstance(override, dict) and override.get("force"):
+        print("Override: force")
+    preflight = result.get("preflight")
+    if isinstance(preflight, dict):
+        print(f"Preflight: {'ok' if preflight.get('ok') else 'failed'}")
+        issues = preflight.get("issues")
+        if isinstance(issues, list) and issues:
+            print("Validation issues:")
+            for issue in issues:
+                if not isinstance(issue, dict):
+                    continue
+                location = ""
+                if issue.get("path"):
+                    location = f" [{issue['path']}"
+                    if issue.get("line"):
+                        location += f":{issue['line']}"
+                    location += "]"
+                print(
+                    f"- {issue.get('severity', 'unknown')} "
+                    f"{issue.get('code', 'unknown')}: "
+                    f"{issue.get('message', '')}{location}"
+                )
+    smoke = result.get("smoke")
+    if isinstance(smoke, dict):
+        print(f"Smoke render: return code {smoke.get('returncode', 'unknown')}")
     if "requested_beat" in result:
         print(f"Requested beat: {result['requested_beat']}")
     print(f"Path: {build_dir}")
@@ -585,6 +609,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Render a named beat using section-aware output where supported.",
     )
+    render_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run despite preflight validation failures. Smoke render failures still block review/final.",
+    )
 
     beats_parser = subparsers.add_parser(
         "beats",
@@ -627,6 +656,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--builds-root",
         default="builds",
         help="Build output root. Defaults to builds.",
+    )
+    build_deck_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run despite preflight validation failures. Smoke render failures still block review/final.",
     )
 
     inspect_parser = subparsers.add_parser(
@@ -717,6 +751,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             catalog_path=args.catalog,
             builds_root=args.builds_root,
             beat_id=args.beat,
+            force=args.force,
         )
 
     if args.command == "beats":
@@ -733,6 +768,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             repo_root=args.repo_root,
             catalog_path=args.catalog,
             builds_root=args.builds_root,
+            force=args.force,
         )
 
     if args.command == "inspect":
