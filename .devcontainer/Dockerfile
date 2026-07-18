@@ -3,7 +3,8 @@ FROM manimcommunity/manim:v0.20.1
 USER root
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV PATH="/manim/.local/bin:/home/manimuser/.local/bin:${PATH}"
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="${VIRTUAL_ENV}/bin:/manim/.local/bin:/home/manimuser/.local/bin:${PATH}"
 
 RUN apt-get update \
     && apt-get install --no-install-recommends -y \
