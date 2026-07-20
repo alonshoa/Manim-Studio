@@ -107,9 +107,9 @@ Deck-specific assets belong next to the deck, typically under
 `decks/<deck_id>/assets/`. Shared reusable assets belong under a future shared
 asset directory only when more than one deck actually depends on them.
 
-Scene imports should be normal Python imports that work from the repository
-root inside the devcontainer. Avoid hidden dependencies on the current working
-directory, local absolute paths, or generated render output.
+Scene imports should be normal Python imports that work from the mounted project
+root inside the runtime container. Avoid hidden dependencies on the current
+working directory, local absolute paths, or generated render output.
 
 ## Migration Rules
 
@@ -128,5 +128,6 @@ base behavior, or review-panel framing. Keep one-off teaching details inside the
 scene.
 
 Before adding a migrated scene to a delivery deck, run catalog validation and a
-small render smoke check in the devcontainer. Larger render, build, and export
-workflows are separate phases and should not be mixed into catalog registration.
+small render smoke check in the runtime container or devcontainer. Larger
+render, build, and export workflows are separate phases and should not be mixed
+into catalog registration.

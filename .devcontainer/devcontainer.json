@@ -1,12 +1,13 @@
 {
   "name": "Manim Studio",
   "build": {
-    "dockerfile": "Dockerfile",
-    "context": ".."
+    "dockerfile": "../Dockerfile",
+    "context": "..",
+    "target": "dev"
   },
   "remoteUser": "manimuser",
   "workspaceFolder": "/workspaces/Manim-Studio",
-  "postCreateCommand": "python -m pip install --no-cache-dir -e '.[dev]' && python -m manim_studio.cli doctor",
+  "postCreateCommand": "/opt/venv/bin/python -m pip install --no-cache-dir -e '.[dev]' && /opt/venv/bin/python -m manim_studio.cli doctor",
   "customizations": {
     "vscode": {
       "settings": {

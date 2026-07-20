@@ -18,10 +18,9 @@ Then verify that the entry point resolves:
 manim-mcp
 ```
 
-MCP clients launch stdio servers as non-interactive processes. In the
-devcontainer, that process must see `/opt/venv/bin` on `PATH` so `manim`,
-`manim-slides`, and the `manim-mcp` entry point resolve consistently. This is
-the same environment concern tracked in GitHub issue #13.
+MCP clients launch stdio servers as non-interactive processes. In any runtime
+container, that process must see `/opt/venv/bin` on `PATH` so `manim`,
+`manim-slides`, and the `manim-mcp` entry point resolve consistently.
 
 ## Client Configuration
 
@@ -43,10 +42,38 @@ configuration looks like:
 }
 ```
 
+For an external project through the reusable Docker runtime, launch Docker with
+stdin attached and no TTY:
+
+```json
+{
+  "mcpServers": {
+    "manim-studio": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "/path/to/project:/workspace",
+        "-w",
+        "/workspace",
+        "-e",
+        "MANIM_STUDIO_REPO_ROOT=/workspace",
+        "manim-studio:local",
+        "manim-mcp"
+      ]
+    }
+  }
+}
+```
+
+Do not include `-t` or allocate a TTY for the MCP stdio process.
+
 On a Windows host that starts the server through WSL, run the command inside
-the devcontainer or use the matching Linux repository path. Avoid pointing MCP
-clients at the Windows checkout path when renders are expected to run in the
-Linux container.
+the devcontainer/runtime container or use the matching Linux project path.
+Avoid pointing MCP clients at the Windows checkout path when renders are
+expected to run in the Linux container.
 
 ## Exposed Surface
 

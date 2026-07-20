@@ -1,0 +1,16 @@
+version: 1
+scenes:
+  - deck_id: demo
+    scene_id: smoke
+    source_path: scenes/smoke_scene.py
+    class_name: SmokeScene
+    base_scene_type: Scene
+    renderer: manim
+    language: en
+    description: Minimal external project scene for runtime container smoke tests.
+    asset_notes: No external assets.
+    font_notes: Uses default Manim and Manim Kit fonts only.
+    parameter_notes: Circle radius and color can be adjusted for smoke testing.
+    render_command: manim -ql scenes/smoke_scene.py SmokeScene
+    baseline_path: baselines/demo/smoke
+    migration_notes: Native external-project fixture, not migrated from Manim Studio.

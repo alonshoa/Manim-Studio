@@ -9,6 +9,7 @@ import sys
 import unittest
 
 from manim_kit import BeatMixin, DEFAULT_THEME, StudioTheme
+from manim_kit.beats import _section_name
 
 
 MANIM_AVAILABLE = importlib.util.find_spec("manim") is not None
@@ -24,6 +25,36 @@ class ManimKitTests(unittest.TestCase):
 
     def test_package_keeps_beat_import_available(self) -> None:
         self.assertTrue(issubclass(BeatMixin, object))
+
+    def test_beat_section_names_are_windows_filename_safe(self) -> None:
+        section_name = _section_name(
+            "transform:part",
+            'Transform square: circle / review? <unsafe>|*',
+        )
+
+        self.assertEqual(
+            "transform-part - Transform square- circle - review- -unsafe",
+            section_name,
+        )
+        self.assertFalse(set(section_name) & set('<>:"/\\|?*'))
+
+    def test_beat_mixin_uses_filename_safe_section_names(self) -> None:
+        class DummyScene(BeatMixin):
+            def __init__(self) -> None:
+                self.sections: list[tuple[str, bool]] = []
+
+            def next_section(self, name: str, skip_animations: bool = False) -> None:
+                self.sections.append((name, skip_animations))
+
+        scene = DummyScene()
+
+        scene.beat("transform", label="Transform square: circle / review?")
+
+        self.assertEqual(
+            [("transform - Transform square- circle - review", False)],
+            scene.sections,
+        )
+        self.assertFalse(set(scene.sections[0][0]) & set('<>:"/\\|?*'))
 
     def test_lightweight_public_imports_do_not_load_studio_tooling(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

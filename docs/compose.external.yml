@@ -1,0 +1,8 @@
+services:
+  studio:
+    image: manim-studio:local
+    working_dir: /workspace
+    environment:
+      MANIM_STUDIO_REPO_ROOT: /workspace
+    volumes:
+      - .:/workspace

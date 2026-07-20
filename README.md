@@ -15,7 +15,8 @@ Current Status
 
 Implemented:
 
-- VS Code devcontainer based on `manimcommunity/manim:v0.20.1`.
+- Reusable local Docker runtime based on `manimcommunity/manim:v0.20.1`.
+- VS Code devcontainer derived from the same runtime image definition.
 - Pinned Python dependencies for Manim, manim-slides, PyYAML, and MCP.
 - Five registered pilot scenes in `catalog/scenes.yaml`:
   - `examples/square_to_circle`
@@ -59,6 +60,12 @@ Still planned or intentionally unsupported:
 
 Quick Start
 -----------
+
+Build the reusable runtime image:
+
+```bash
+docker build --target runtime -t manim-studio:local .
+```
 
 Open the repository in VS Code and run **Dev Containers: Reopen in Container**.
 The devcontainer installs the package in editable mode and runs `studio doctor`
@@ -107,6 +114,27 @@ Inspect a build:
 
 ```bash
 studio inspect <build-id>
+```
+
+Run Studio against an external Manim project mounted at `/workspace`:
+
+```bash
+docker run --rm \
+  -v "/path/to/project:/workspace" \
+  -w /workspace \
+  manim-studio:local \
+  studio list
+```
+
+Run the MCP stdio server through the runtime container without allocating a TTY:
+
+```bash
+docker run --rm -i \
+  -v "/path/to/project:/workspace" \
+  -w /workspace \
+  -e MANIM_STUDIO_REPO_ROOT=/workspace \
+  manim-studio:local \
+  manim-mcp
 ```
 
 Run tests from the repository root:
@@ -183,6 +211,7 @@ Manim-Studio/
 |   |-- manim_mcp/            # Local MCP server and service envelope
 |   `-- manim_studio/         # CLI, catalog, validation, profiles, builds
 |-- tests/                    # Unit and service tests
+|-- Dockerfile                # Runtime and devcontainer image targets
 |-- pyproject.toml
 `-- README.md
 ```
@@ -267,8 +296,8 @@ movement, updaters, and 3D scenes where useful.
 
 Stay local-first and reproducible.
 
-The supported path is a local devcontainer running through VS Code, Docker, and
-WSL where relevant. The project should remain usable without cloud
+The supported paths are the reusable local runtime container and the VS Code
+devcontainer derived from it. The project should remain usable without cloud
 infrastructure or remote render workers.
 
 Keep MCP safe.
@@ -282,7 +311,8 @@ Further Documentation
 ---------------------
 
 - `docs/environment.md`: supported devcontainer, pinned runtime, first-run
-  checks, and build artifact behavior.
+  checks, external project workflow, and build artifact behavior.
+- `docs/compose.external.yml`: copyable Compose service for external projects.
 - `docs/conventions.md`: repository conventions for scenes, catalog metadata,
   rendering, and review.
 - `docs/pilot_scenes.md`: implementation notes for migrated pilot scenes.

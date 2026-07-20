@@ -1,11 +1,97 @@
 # Environment
 
-Manim Studio uses a local VS Code devcontainer as the supported development and
-rendering environment. The container pins Manim Community and Manim Slides so a
-clean clone can rebuild a known-good workspace before later catalog and render
-services are added.
+Manim Studio uses a reusable local Docker runtime for validation, rendering,
+builds, Manim Kit, and the local MCP server. External Manim projects can mount
+at `/workspace` and run Studio without copying their scenes into this
+repository.
 
-## Supported Host Flow
+The VS Code devcontainer remains supported, but it now builds from the same
+root `Dockerfile` as the reusable runtime.
+
+## Runtime Image
+
+Build the local runtime image from the Manim Studio repository root:
+
+```bash
+docker build --target runtime -t manim-studio:local .
+```
+
+The runtime image:
+
+- uses `manimcommunity/manim:v0.20.1` as its base
+- installs FFmpeg, TeX Live, `dvisvgm`, fontconfig, DejaVu fonts, and Noto fonts
+- installs the packaged `manim-studio` project into `/opt/venv`
+- sets `/workspace` as the mounted external project root
+- exposes the `studio` and `manim-mcp` entry points on `PATH`
+
+Run one-shot commands against an external project:
+
+```bash
+docker run --rm \
+  -v "/path/to/project:/workspace" \
+  -w /workspace \
+  manim-studio:local \
+  studio doctor --catalog
+```
+
+```bash
+docker run --rm \
+  -v "/path/to/project:/workspace" \
+  -w /workspace \
+  manim-studio:local \
+  studio render demo/smoke --profile draft
+```
+
+Run the MCP stdio server without a TTY:
+
+```bash
+docker run --rm -i \
+  -v "/path/to/project:/workspace" \
+  -w /workspace \
+  -e MANIM_STUDIO_REPO_ROOT=/workspace \
+  manim-studio:local \
+  manim-mcp
+```
+
+Do not add `-t` for MCP stdio clients.
+
+## External Project Compose
+
+`docs/compose.external.yml` is a copyable Compose example for an external
+project repository. After building `manim-studio:local`, copy that file into the
+external project as `compose.yml` or adapt the service block.
+
+Expected commands from the external project root:
+
+```bash
+docker compose run --rm studio studio doctor --catalog
+docker compose run --rm studio studio list
+docker compose run --rm studio studio catalog validate
+docker compose run --rm studio studio render demo/smoke --profile draft
+docker compose run --rm -T studio manim-mcp
+```
+
+Generated `builds/`, `media/`, `slides/`, and review artifacts are written
+inside the mounted external project so the host can inspect and manage them.
+
+## UID And GID
+
+The runtime image accepts Linux ownership build arguments:
+
+```bash
+docker build \
+  --target runtime \
+  --build-arg USER_UID="$(id -u)" \
+  --build-arg USER_GID="$(id -g)" \
+  -t manim-studio:local .
+```
+
+The defaults are `1000:1000`, matching common Linux development users. On
+Docker Desktop for Windows and macOS, bind-mount ownership is mediated by Docker
+Desktop; files should remain visible and manageable from the host even when the
+container user appears different inside Linux.
+
+## Devcontainer Flow
 
 Install these host tools:
 
@@ -16,7 +102,7 @@ Install these host tools:
   when possible for better filesystem performance
 
 Open the repository in VS Code, run **Dev Containers: Reopen in Container**, and
-let the container build from `.devcontainer/Dockerfile`.
+let the container build the `dev` target from the root `Dockerfile`.
 
 The devcontainer post-create step installs the local `studio` package and dev
 test tools into the container virtual environment in editable mode. For local
@@ -26,9 +112,9 @@ non-container development, install the same test path with:
 python -m pip install -e ".[dev]"
 ```
 
-## Pinned Runtime
+## Pinned Dependencies
 
-The devcontainer currently pins:
+The runtime currently pins:
 
 - Base image: `manimcommunity/manim:v0.20.1`
 - Python package: `manim==0.20.1`
@@ -73,7 +159,7 @@ Render the minimal slide scene:
 manim-slides render -ql examples/basic_slide.py BasicSlide
 ```
 
-Generated output under `media/`, `slides/`, and future `builds/` directories is
+Generated output under `media/`, `slides/`, and `builds/` directories is
 local-only and ignored by Git.
 
 Curated baseline review frames belong under `baselines/` and may be tracked.
@@ -93,10 +179,9 @@ smoke render failures always stop review/final rendering. Successful review
 renders produce representative PNG frames and `review/contact_sheet.png` when
 FFmpeg can extract frames from the rendered video.
 
-## Out of Scope for Phase 1
+## Out of Scope
 
-This environment issue does not add cloud rendering, distributed workers, GPU or
-OpenGL acceleration, the full Studio CLI, MCP tooling, or migration of the
-legacy scene archive. Optional GPU/OpenGL configuration can be documented later
-for specific workstations, but it is intentionally disabled in the default
-container.
+This runtime does not add cloud rendering, distributed workers, GPU/OpenGL as a
+default path, image registry publication, or a full external project template.
+Optional GPU/OpenGL configuration can be documented later for specific
+workstations, but it is intentionally disabled in the default container.

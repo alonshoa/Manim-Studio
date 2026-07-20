@@ -136,22 +136,22 @@ def run_doctor(
         lambda: _check_command(
             "FFmpeg",
             ("ffmpeg", "-version"),
-            "Install ffmpeg in the devcontainer image.",
+            "Install ffmpeg in the runtime container image.",
         ),
         lambda: _check_command(
             "LaTeX",
             ("latex", "--version"),
-            "Install the TeX Live LaTeX packages in the devcontainer image.",
+            "Install the TeX Live LaTeX packages in the runtime container image.",
         ),
         lambda: _check_command(
             "XeLaTeX",
             ("xelatex", "--version"),
-            "Install texlive-xetex in the devcontainer image.",
+            "Install texlive-xetex in the runtime container image.",
         ),
         lambda: _check_command(
             "dvisvgm",
             ("dvisvgm", "--version"),
-            "Install dvisvgm in the devcontainer image.",
+            "Install dvisvgm in the runtime container image.",
         ),
         _check_hebrew_fonts,
     )

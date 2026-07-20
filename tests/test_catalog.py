@@ -43,6 +43,20 @@ class CatalogValidationTests(unittest.TestCase):
             {(entry.deck_id, entry.scene_id) for entry in result.entries},
         )
 
+    def test_external_project_fixture_validates_with_strict_metadata(self) -> None:
+        if importlib.util.find_spec("manim") is None:
+            self.skipTest("manim is not installed in this Python environment")
+
+        fixture_root = Path(__file__).resolve().parent / "fixtures" / "external_project"
+
+        result = validate_catalog(fixture_root, strict_metadata=True)
+
+        self.assertTrue(result.ok, result.errors)
+        self.assertEqual(
+            ("demo", "smoke"),
+            (result.entries[0].deck_id, result.entries[0].scene_id),
+        )
+
     def test_valid_catalog(self) -> None:
         with CatalogFixture() as fixture:
             fixture.write_scene("scene.py", "class DemoScene:\n    pass\n")

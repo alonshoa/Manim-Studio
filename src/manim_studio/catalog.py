@@ -458,8 +458,8 @@ def _import_source_file(
         if exc.name in {"manim", "manim_slides"}:
             errors.append(
                 f"{label}: source file import failed because {exc.name!r} is not "
-                "installed. Run catalog validation inside the devcontainer or "
-                "install the pinned project dependencies."
+                "installed. Run catalog validation inside the runtime container "
+                "or install the pinned project dependencies."
             )
         else:
             errors.append(f"{label}: source file import failed: {exc}.")

@@ -32,3 +32,52 @@ jobs:
 
       - name: Run tests
         run: python -m pytest tests -q
+
+  runtime-smoke:
+    name: Runtime image smoke
+    runs-on: ubuntu-latest
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Build runtime image
+        run: docker build --target runtime -t manim-studio:local .
+
+      - name: Doctor external fixture
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/tests/fixtures/external_project:/workspace" \
+            -w /workspace \
+            manim-studio:local \
+            studio doctor --catalog
+
+      - name: List external fixture catalog
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/tests/fixtures/external_project:/workspace" \
+            -w /workspace \
+            manim-studio:local \
+            studio list
+
+      - name: Validate external fixture catalog
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/tests/fixtures/external_project:/workspace" \
+            -w /workspace \
+            manim-studio:local \
+            studio catalog validate
+
+      - name: Render external fixture
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/tests/fixtures/external_project:/workspace" \
+            -w /workspace \
+            manim-studio:local \
+            studio render demo/smoke --profile draft
+
+      - name: Confirm mounted build artifacts
+        run: |
+          test -d tests/fixtures/external_project/builds
+          find tests/fixtures/external_project/builds -name manifest.json -print -quit | grep .

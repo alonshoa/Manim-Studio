@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 
 TARGET_BEAT_ENV = "MANIM_STUDIO_BEAT"
+WINDOWS_UNSAFE_FILENAME_CHARS = set('<>:"/\\|?*')
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,19 @@ class BeatMixin:
 
 
 def _section_name(beat_id: str, label: str) -> str:
-    if label == beat_id:
-        return beat_id
-    return f"{beat_id}: {label}"
+    safe_id = _filename_safe_text(beat_id) or "beat"
+    safe_label = _filename_safe_text(label)
+    if not safe_label or safe_label == safe_id:
+        return safe_id
+    return f"{safe_id} - {safe_label}"
+
+
+def _filename_safe_text(value: str) -> str:
+    cleaned = [
+        "-" if ord(char) < 32 or char in WINDOWS_UNSAFE_FILENAME_CHARS else char
+        for char in value.strip()
+    ]
+    normalized = " ".join("".join(cleaned).split())
+    while "--" in normalized:
+        normalized = normalized.replace("--", "-")
+    return normalized.strip(" .-")
