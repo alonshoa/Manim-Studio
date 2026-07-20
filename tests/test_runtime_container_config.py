@@ -30,6 +30,15 @@ class RuntimeContainerConfigTests(unittest.TestCase):
         self.assertIn("/opt/venv/bin/python -m pip install", post_create)
         self.assertIn("/opt/venv/bin/python -m manim_studio.cli doctor", post_create)
 
+    def test_runtime_smoke_build_uses_runner_uid_gid(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        workflow = (repo_root / ".github" / "workflows" / "tests.yml").read_text(
+            encoding="utf-8",
+        )
+
+        self.assertIn('--build-arg USER_UID="$(id -u)"', workflow)
+        self.assertIn('--build-arg USER_GID="$(id -g)"', workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
