@@ -128,9 +128,14 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         return services.propose_render_debug_patch(target, build_id, ctx)
 
     @mcp.tool()
-    def export_deck(deck_id: str, format: str) -> dict:
-        """Report deck export support status."""
-        return services.export_deck(deck_id, format, ctx)
+    def export_deck(
+        deck_id: str,
+        format: str = "pptx",
+        profile: str = "final",
+        force: bool = False,
+    ) -> dict:
+        """Export an all-slides deck to a supported delivery format."""
+        return services.export_deck(deck_id, format, profile, force, ctx)
 
     return mcp
 

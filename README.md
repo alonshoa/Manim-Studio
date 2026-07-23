@@ -33,6 +33,7 @@ Implemented:
   - `studio render <deck>/<scene> --profile draft`
   - `studio render <deck>/<scene> --beat <beat-id>`
   - `studio build <deck> --profile review`
+  - `studio export <deck> --format pptx`
   - `studio inspect <build-id>`
 - Render profiles:
   - `draft`: low-quality fast render for iteration.
@@ -46,6 +47,8 @@ Implemented:
   and beat support.
 - `manim-mcp` local stdio server with resources and tools for catalog, scene,
   validation, render, build, log, artifact, and staged patch workflows.
+- PPTX deck export for decks whose registered scenes all use
+  `renderer: manim-slides`, backed by `manim-slides convert --to=pptx`.
 - Safe staged MCP scene edits under `builds/staged/<proposal_id>/workspace`,
   with inspectable diffs, staged validation, staged draft renders, and explicit
   apply checks before canonical scene files are changed.
@@ -57,7 +60,7 @@ Implemented:
 
 Still planned or intentionally unsupported:
 
-- Full deck export to HTML, PPTX, or other delivery formats.
+- HTML, PDF, ZIP, and mixed Manim/non-slide deck export.
 - Visual regression checks beyond review-frame/contact-sheet artifacts.
 - Cloud rendering, distributed workers, or GPU/OpenGL as a default workflow.
 - A YAML-only animation language.
@@ -114,6 +117,12 @@ Build a registered deck:
 
 ```bash
 studio build examples --profile review
+```
+
+Export an all-slides deck to PowerPoint:
+
+```bash
+studio export <all-slide-deck> --format pptx --profile final
 ```
 
 Inspect a build:
@@ -275,8 +284,9 @@ Tools include:
 - `export_deck`
 
 All MCP responses use a structured envelope with `ok`, `status`, `data`, and
-`error`. `export_deck` is present for surface compatibility but currently
-returns `unsupported` because full export services are not implemented yet.
+`error`. `export_deck` currently supports `format: "pptx"` for decks whose
+registered scenes all use `renderer: manim-slides`. Other formats return
+`unsupported`, and mixed decks return `unsupported_deck`.
 
 Design Principles
 -----------------

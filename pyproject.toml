@@ -12,6 +12,7 @@ dependencies = [
   "mcp>=1.28,<2",
   "manim==0.20.1",
   "manim-slides==5.6.0",
+  "python-pptx==1.0.2",
   "PyYAML==6.0.2",
 ]
 

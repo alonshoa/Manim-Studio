@@ -42,6 +42,16 @@ docker run --rm \
   studio render demo/smoke --profile draft
 ```
 
+Export an all-slides deck to PPTX:
+
+```bash
+docker run --rm \
+  -v "/path/to/project:/workspace" \
+  -w /workspace \
+  manim-studio:local \
+  studio export my_slides --format pptx --profile final
+```
+
 Run the MCP stdio server without a TTY:
 
 ```bash
@@ -68,6 +78,7 @@ docker compose run --rm studio studio doctor --catalog
 docker compose run --rm studio studio list
 docker compose run --rm studio studio catalog validate
 docker compose run --rm studio studio render demo/smoke --profile draft
+docker compose run --rm studio studio export my_slides --format pptx --profile final
 docker compose run --rm -T studio manim-mcp
 ```
 
@@ -119,6 +130,7 @@ The runtime currently pins:
 - Base image: `manimcommunity/manim:v0.20.1`
 - Python package: `manim==0.20.1`
 - Python package: `manim-slides==5.6.0`
+- Python package: `python-pptx==1.0.2`
 
 The image also installs FFmpeg, TeX Live LaTeX/XeLaTeX support, `dvisvgm`,
 fontconfig, DejaVu fonts, and Noto fonts for Hebrew-capable text rendering.
@@ -146,6 +158,19 @@ Run the repository test suite:
 ```bash
 pytest tests -q
 ```
+
+Verify the local MCP stdio entry point from the devcontainer or WSL-backed
+runtime environment:
+
+```bash
+python -m pip install -e ".[dev]"
+python -c "from manim_mcp.server import create_server; create_server()"
+manim-mcp
+```
+
+MCP clients should launch `manim-mcp` as a stdio process without a TTY. On
+Windows hosts, run it inside the devcontainer/runtime container or through WSL
+with Linux project paths.
 
 Render the minimal Cairo scene:
 

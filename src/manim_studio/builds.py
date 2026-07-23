@@ -29,6 +29,7 @@ ARTIFACT_SUFFIXES = {
     ".mov",
     ".mp4",
     ".png",
+    ".pptx",
     ".srt",
     ".svg",
     ".vtt",
@@ -45,6 +46,7 @@ METADATA_FILENAMES = {
     "result.json",
 }
 EXPENSIVE_PROFILES = {"review", "final"}
+SUPPORTED_EXPORT_FORMATS = ("pptx",)
 
 
 @dataclass(frozen=True)
@@ -55,6 +57,13 @@ class BuildResult:
     profile: str
     status: str
     returncode: int
+
+
+@dataclass(frozen=True)
+class ExportDeckError(Exception):
+    code: str
+    message: str
+    detail: object | None = None
 
 
 def create_build_id(kind: str, target: str, now: datetime | None = None) -> str:
@@ -327,6 +336,169 @@ def build_deck(
     )
 
 
+def validate_deck_export(
+    deck_id: str,
+    entries: Sequence[CatalogEntry],
+    format: str,
+) -> str:
+    normalized_format = format.strip().lower()
+    if normalized_format not in SUPPORTED_EXPORT_FORMATS:
+        raise ExportDeckError(
+            "unsupported",
+            f"unsupported export format: {format}",
+            {"deck_id": deck_id, "format": format, "supported_formats": list(SUPPORTED_EXPORT_FORMATS)},
+        )
+
+    incompatible = [
+        {
+            "target": entry_target(entry),
+            "renderer": entry.renderer,
+            "class_name": entry.class_name,
+        }
+        for entry in entries
+        if entry.renderer != "manim-slides"
+    ]
+    if incompatible:
+        raise ExportDeckError(
+            "unsupported_deck",
+            "pptx export requires every deck scene to use renderer: manim-slides",
+            {"deck_id": deck_id, "format": normalized_format, "incompatible_scenes": incompatible},
+        )
+    return normalized_format
+
+
+def export_deck(
+    repo_root: Path | str,
+    deck_id: str,
+    entries: Sequence[CatalogEntry],
+    profile: RenderProfile,
+    format: str = "pptx",
+    builds_root: Path | str = "builds",
+    runner: CommandRunner = subprocess.run,
+    force: bool = False,
+    artifact_generator: ArtifactGenerator | None = None,
+) -> BuildResult:
+    normalized_format = validate_deck_export(deck_id, entries, format)
+    root = Path(repo_root).resolve()
+    root_builds = _resolve_builds_root(root, builds_root)
+    build_id = create_build_id("export", deck_id)
+    build_dir = root_builds / build_id
+    export_dir = build_dir / "export"
+    export_slides_dir = build_dir / "slides"
+    build_dir.mkdir(parents=True, exist_ok=False)
+    export_dir.mkdir()
+    export_slides_dir.mkdir()
+
+    started_at = _utc_now()
+    scene_results: list[BuildResult] = []
+    collected_slides: list[dict[str, str]] = []
+    for entry in entries:
+        scene_result = render_scene(
+            root,
+            entry,
+            profile,
+            builds_root=root_builds,
+            runner=runner,
+            force=force,
+            artifact_generator=artifact_generator,
+        )
+        scene_results.append(scene_result)
+        if scene_result.returncode != 0:
+            return _finalize_export_build(
+                build_id=build_id,
+                build_dir=build_dir,
+                repo_root=root,
+                deck_id=deck_id,
+                profile=profile,
+                format=normalized_format,
+                status="failed",
+                failure_class="render_failed",
+                returncode=1,
+                started_at=started_at,
+                finished_at=_utc_now(),
+                force=force,
+                scene_results=scene_results,
+                collected_slides=collected_slides,
+                command=None,
+                stdout="",
+                stderr="",
+                error=f"scene render failed: {scene_result.target}",
+            )
+
+        ok, error = _collect_manim_slides_output(root, export_slides_dir, entry)
+        if not ok:
+            return _finalize_export_build(
+                build_id=build_id,
+                build_dir=build_dir,
+                repo_root=root,
+                deck_id=deck_id,
+                profile=profile,
+                format=normalized_format,
+                status="failed",
+                failure_class="slide_config_missing",
+                returncode=1,
+                started_at=started_at,
+                finished_at=_utc_now(),
+                force=force,
+                scene_results=scene_results,
+                collected_slides=collected_slides,
+                command=None,
+                stdout="",
+                stderr="",
+                error=error,
+            )
+        collected_slides.append(
+            {
+                "target": entry_target(entry),
+                "class_name": entry.class_name,
+                "config": f"slides/{entry.class_name}.json",
+                "files": f"slides/files/{entry.class_name}",
+            }
+        )
+
+    export_path = export_dir / f"{_slugify(deck_id)}.{normalized_format}"
+    command = [
+        "manim-slides",
+        "convert",
+        "--folder",
+        str(export_slides_dir),
+        f"--to={normalized_format}",
+        *[entry.class_name for entry in entries],
+        str(export_path),
+    ]
+    convert = _run_logged_command(
+        runner,
+        command,
+        root,
+        build_dir / "stdout.log",
+        build_dir / "stderr.log",
+        None,
+    )
+    returncode = int(convert["returncode"])
+    status = "success" if returncode == 0 else "failed"
+    failure_class = "success" if returncode == 0 else "export_failed"
+    return _finalize_export_build(
+        build_id=build_id,
+        build_dir=build_dir,
+        repo_root=root,
+        deck_id=deck_id,
+        profile=profile,
+        format=normalized_format,
+        status=status,
+        failure_class=failure_class,
+        returncode=returncode,
+        started_at=started_at,
+        finished_at=_utc_now(),
+        force=force,
+        scene_results=scene_results,
+        collected_slides=collected_slides,
+        command=command,
+        stdout=str(convert["stdout"]),
+        stderr=str(convert["stderr"]),
+        error=None if returncode == 0 else "manim-slides convert failed",
+    )
+
+
 def inspect_build(
     repo_root: Path | str,
     build_id: str,
@@ -360,6 +532,110 @@ def inspect_build(
         "artifacts": artifacts.get("artifacts", []),
         "beats": beats.get("beats", []),
     }
+
+
+def _finalize_export_build(
+    build_id: str,
+    build_dir: Path,
+    repo_root: Path,
+    deck_id: str,
+    profile: RenderProfile,
+    format: str,
+    status: str,
+    failure_class: str,
+    returncode: int,
+    started_at: str,
+    finished_at: str,
+    force: bool,
+    scene_results: Sequence[BuildResult],
+    collected_slides: Sequence[dict[str, str]],
+    command: Sequence[str] | None,
+    stdout: str,
+    stderr: str,
+    error: str | None,
+) -> BuildResult:
+    stdout_path = build_dir / "stdout.log"
+    stderr_path = build_dir / "stderr.log"
+    if not stdout_path.exists():
+        stdout_path.write_text(stdout, encoding="utf-8")
+    if not stderr_path.exists():
+        stderr_path.write_text(stderr, encoding="utf-8")
+
+    root_builds = build_dir.parent.resolve()
+    scene_builds = [
+        {
+            "build_id": result.build_id,
+            "target": result.target,
+            "status": result.status,
+            "failure_class": _result_failure_class(result),
+            "returncode": result.returncode,
+            "path": _relative_to(result.build_dir, root_builds),
+        }
+        for result in scene_results
+    ]
+    artifacts = _collect_artifacts(build_dir)
+    result = {
+        "build_id": build_id,
+        "kind": "export",
+        "target": deck_id,
+        "format": format,
+        "profile": profile.name,
+        "status": status,
+        "failure_class": failure_class,
+        "returncode": returncode,
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "stdout_log": "stdout.log",
+        "stderr_log": "stderr.log",
+    }
+    manifest = {
+        **result,
+        "override": {"force": force},
+        "command": _command_metadata(command, repo_root, build_dir / "export") if command else None,
+        "scene_builds": scene_builds,
+        "slides": list(collected_slides),
+        "artifacts": artifacts,
+        "error": error,
+    }
+    _write_json(build_dir / "environment.json", _environment_metadata(repo_root))
+    _write_json(build_dir / "profile.json", asdict(profile))
+    _write_json(build_dir / "result.json", result)
+    _write_json(build_dir / "manifest.json", manifest)
+    _write_json(build_dir / "artifacts.json", {"artifacts": artifacts})
+    return BuildResult(
+        build_id=build_id,
+        build_dir=build_dir,
+        target=deck_id,
+        profile=profile.name,
+        status=status,
+        returncode=returncode,
+    )
+
+
+def _collect_manim_slides_output(
+    repo_root: Path,
+    export_slides_dir: Path,
+    entry: CatalogEntry,
+) -> tuple[bool, str | None]:
+    source_slides_dir = repo_root / "slides"
+    source_config = source_slides_dir / f"{entry.class_name}.json"
+    source_files = source_slides_dir / "files" / entry.class_name
+    if not source_config.is_file():
+        return False, f"manim-slides config not found for {entry_target(entry)}: {source_config}"
+    if not source_files.exists():
+        return False, f"manim-slides files not found for {entry_target(entry)}: {source_files}"
+
+    target_config = export_slides_dir / source_config.name
+    target_files = export_slides_dir / "files" / entry.class_name
+    target_files.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_config, target_config)
+    if target_files.exists():
+        shutil.rmtree(target_files)
+    if source_files.is_dir():
+        shutil.copytree(source_files, target_files)
+    else:
+        shutil.copy2(source_files, target_files)
+    return True, None
 
 
 def _resolve_builds_root(repo_root: Path, builds_root: Path | str) -> Path:
@@ -620,6 +896,8 @@ def _artifact_kind(path: Path) -> str:
         return "image"
     if suffix == ".html":
         return "html"
+    if suffix == ".pptx":
+        return "presentation"
     if suffix in {".srt", ".vtt"}:
         return "captions"
     return "data"

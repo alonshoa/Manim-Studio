@@ -6,7 +6,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from manim_studio.builds import build_deck, command_for_entry, render_scene
+from manim_studio.builds import (
+    ExportDeckError,
+    build_deck,
+    command_for_entry,
+    export_deck,
+    inspect_build,
+    render_scene,
+)
 from manim_studio.catalog import CatalogEntry
 from manim_studio.profiles import get_profile
 
@@ -222,6 +229,106 @@ class BuildServiceTests(unittest.TestCase):
             self.assertEqual("deck", summary["kind"])
             self.assertEqual(2, len(summary["scene_builds"]))
 
+    def test_export_deck_creates_pptx_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+            runner = FakeRunner(returncode=0, stdout="ok\n")
+
+            result = export_deck(
+                root,
+                "demo",
+                [slides_entry()],
+                get_profile("draft"),
+                runner=runner,
+            )
+            inspection = inspect_build(root, result.build_id)
+
+        self.assertEqual("success", result.status)
+        self.assertEqual("export", inspection["result"]["kind"])
+        self.assertEqual("pptx", inspection["result"]["format"])
+        self.assertIn(
+            {"kind": "presentation", "path": "export/demo.pptx"},
+            inspection["artifacts"],
+        )
+
+    def test_export_deck_rejects_unsupported_format(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+
+            with self.assertRaises(ExportDeckError) as raised:
+                export_deck(
+                    root,
+                    "demo",
+                    [slides_entry()],
+                    get_profile("draft"),
+                    format="html",
+                    runner=FakeRunner(returncode=0),
+                )
+
+        self.assertEqual("unsupported", raised.exception.code)
+
+    def test_export_deck_rejects_mixed_deck(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+
+            with self.assertRaises(ExportDeckError) as raised:
+                export_deck(
+                    root,
+                    "demo",
+                    [manim_entry(), slides_entry()],
+                    get_profile("draft"),
+                    runner=FakeRunner(returncode=0),
+                )
+
+        self.assertEqual("unsupported_deck", raised.exception.code)
+        self.assertIn("demo/intro", str(raised.exception.detail))
+
+    def test_export_deck_records_render_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+
+            result = export_deck(
+                root,
+                "demo",
+                [slides_entry()],
+                get_profile("draft"),
+                runner=FakeRunner(returncode=2, stderr="render failed\n"),
+            )
+            manifest = read_json(result.build_dir / "manifest.json")
+
+        self.assertEqual("failed", result.status)
+        self.assertEqual("render_failed", manifest["failure_class"])
+        self.assertEqual("scene render failed: demo/slides", manifest["error"])
+
+    def test_export_deck_records_convert_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            write_scene_files(root)
+            runner = FakeRunner(
+                returncode=0,
+                stdout="rendered\n",
+                convert_returncode=3,
+                convert_stderr="convert failed\n",
+            )
+
+            result = export_deck(
+                root,
+                "demo",
+                [slides_entry()],
+                get_profile("draft"),
+                runner=runner,
+            )
+            manifest = read_json(result.build_dir / "manifest.json")
+            stderr = (result.build_dir / "stderr.log").read_text(encoding="utf-8")
+
+        self.assertEqual("failed", result.status)
+        self.assertEqual("export_failed", manifest["failure_class"])
+        self.assertEqual("convert failed\n", stderr)
+
 
 class FakeRunner:
     def __init__(
@@ -229,20 +336,48 @@ class FakeRunner:
         returncode: int,
         stdout: str = "",
         stderr: str = "",
+        convert_returncode: int = 0,
+        convert_stdout: str = "",
+        convert_stderr: str = "",
     ) -> None:
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
+        self.convert_returncode = convert_returncode
+        self.convert_stdout = convert_stdout
+        self.convert_stderr = convert_stderr
         self.commands: list[list[str]] = []
         self.envs: list[dict[str, str]] = []
 
     def __call__(self, command, **kwargs):
         self.commands.append(list(command))
         self.envs.append(kwargs.get("env") or {})
+        if list(command)[:2] == ["manim-slides", "convert"]:
+            dest = Path(command[-1])
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if self.convert_returncode == 0:
+                dest.write_bytes(b"fake pptx")
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=self.convert_returncode,
+                stdout=self.convert_stdout,
+                stderr=self.convert_stderr,
+            )
         media_dir = Path(command[command.index("--media_dir") + 1])
         media_dir.mkdir(parents=True, exist_ok=True)
         if self.returncode == 0:
             (media_dir / "video.mp4").write_bytes(b"fake mp4")
+            if list(command)[:2] == ["manim-slides", "render"]:
+                root = Path(kwargs["cwd"])
+                class_name = command[-1]
+                slides_dir = root / "slides"
+                files_dir = slides_dir / "files" / class_name
+                files_dir.mkdir(parents=True, exist_ok=True)
+                (slides_dir / f"{class_name}.json").write_text(
+                    '{"slides": []}\n',
+                    encoding="utf-8",
+                )
+                (files_dir / "video.mp4").write_bytes(b"fake mp4")
         return subprocess.CompletedProcess(
             args=command,
             returncode=self.returncode,

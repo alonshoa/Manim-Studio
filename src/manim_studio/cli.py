@@ -446,6 +446,80 @@ def run_build(
     return build_result.returncode
 
 
+def run_export(
+    deck_id: str,
+    format: str,
+    profile_name: str,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    builds_root: Path | str = "builds",
+    force: bool = False,
+    runner=None,
+) -> int:
+    from manim_studio.builds import ExportDeckError, export_deck, inspect_build
+    from manim_studio.catalog import list_deck_entries, load_catalog_entries
+    from manim_studio.profiles import get_profile
+
+    if "/" in deck_id:
+        print("deck target must use '<deck_id>' syntax")
+        return 1
+
+    root = _repo_root(repo_root)
+    try:
+        profile = get_profile(profile_name)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+
+    result = load_catalog_entries(repo_root=root, catalog_path=catalog_path)
+    if not result.ok:
+        _print_catalog_errors(result.errors)
+        return 1
+
+    entries = list_deck_entries(result.entries, deck_id)
+    if not entries:
+        print(f"Target not found: {deck_id}")
+        return 1
+
+    kwargs = {}
+    if runner is not None:
+        kwargs["runner"] = runner
+    try:
+        build_result = export_deck(
+            root,
+            deck_id,
+            entries,
+            profile,
+            format=format,
+            builds_root=builds_root,
+            force=force,
+            **kwargs,
+        )
+    except ExportDeckError as exc:
+        print(f"{exc.code}: {exc.message}")
+        if exc.detail:
+            print(exc.detail)
+        return 1
+
+    print(f"Deck export {build_result.status}: {build_result.build_id}")
+    print(f"Path: {build_result.build_dir}")
+    try:
+        inspection = inspect_build(root, build_result.build_id, builds_root=builds_root)
+    except FileNotFoundError:
+        return build_result.returncode
+    artifacts = inspection["artifacts"]
+    if artifacts:
+        print("Artifacts:")
+        for artifact in artifacts:
+            if isinstance(artifact, dict):
+                print(f"- {artifact.get('path')} ({artifact.get('kind', 'artifact')})")
+            else:
+                print(f"- {artifact}")
+    else:
+        print("Artifacts: none")
+    return build_result.returncode
+
+
 def run_inspect(
     build_id: str,
     repo_root: Path | str | None = None,
@@ -663,6 +737,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run despite preflight validation failures. Smoke render failures still block review/final.",
     )
 
+    export_parser = subparsers.add_parser(
+        "export",
+        help="Export an all-slides deck to a delivery artifact.",
+    )
+    export_parser.add_argument("deck", help="Deck ID.")
+    export_parser.add_argument(
+        "--format",
+        default="pptx",
+        choices=("pptx",),
+        help="Export format. Defaults to pptx.",
+    )
+    export_parser.add_argument(
+        "--profile",
+        default="final",
+        choices=profile_choices,
+        help="Render profile used before export. Defaults to final.",
+    )
+    export_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository root to export from. Defaults to the current directory.",
+    )
+    export_parser.add_argument(
+        "--catalog",
+        default=DEFAULT_CATALOG_PATH,
+        help=f"Catalog file path. Defaults to {DEFAULT_CATALOG_PATH}.",
+    )
+    export_parser.add_argument(
+        "--builds-root",
+        default="builds",
+        help="Build output root. Defaults to builds.",
+    )
+    export_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Run despite preflight validation failures. Smoke render failures still block final rendering.",
+    )
+
     inspect_parser = subparsers.add_parser(
         "inspect",
         help="Inspect a previous isolated build by build ID.",
@@ -764,6 +876,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "build":
         return run_build(
             args.deck,
+            args.profile,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            builds_root=args.builds_root,
+            force=args.force,
+        )
+
+    if args.command == "export":
+        return run_export(
+            args.deck,
+            args.format,
             args.profile,
             repo_root=args.repo_root,
             catalog_path=args.catalog,

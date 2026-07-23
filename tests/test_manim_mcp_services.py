@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import importlib.util
+import os
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -95,16 +98,33 @@ class ManimMcpServiceTests(unittest.TestCase):
         self.assertEqual("result", runner.envs[0]["MANIM_STUDIO_BEAT"])
         self.assertEqual("beat_not_found", missing["error"]["code"])
 
-    def test_build_deck_and_export_stub(self) -> None:
+    def test_build_deck_and_export_pptx(self) -> None:
         with McpFixture() as fixture:
             context = fixture.context(runner=FakeRunner(returncode=0))
 
             build = services.build_deck("demo", context=context)
-            export = services.export_deck("demo", "pptx", context)
+            export = services.export_deck("slides_only", "pptx", profile="draft", context=context)
 
         self.assertTrue(build["ok"], build)
         self.assertEqual("deck", build["data"]["manifest"]["kind"])
-        self.assertEqual("unsupported", export["error"]["code"])
+        self.assertTrue(export["ok"], export)
+        self.assertEqual("export", export["data"]["manifest"]["kind"])
+        self.assertIn(
+            {"kind": "presentation", "path": "export/slides-only.pptx"},
+            export["data"]["artifacts"],
+        )
+
+    def test_export_deck_reports_invalid_requests(self) -> None:
+        with McpFixture() as fixture:
+            context = fixture.context(runner=FakeRunner(returncode=0))
+
+            missing = services.export_deck("missing", "pptx", profile="draft", context=context)
+            unsupported = services.export_deck("slides_only", "html", profile="draft", context=context)
+            mixed = services.export_deck("demo", "pptx", profile="draft", context=context)
+
+        self.assertEqual("target_not_found", missing["error"]["code"])
+        self.assertEqual("unsupported", unsupported["error"]["code"])
+        self.assertEqual("unsupported_deck", mixed["error"]["code"])
 
     @unittest.skipUnless(importlib.util.find_spec("mcp"), "mcp SDK is not installed")
     def test_server_can_be_constructed_when_sdk_is_available(self) -> None:
@@ -114,6 +134,37 @@ class ManimMcpServiceTests(unittest.TestCase):
             server = create_server(fixture.context())
 
         self.assertIsNotNone(server)
+
+    @unittest.skipUnless(importlib.util.find_spec("mcp"), "mcp SDK is not installed")
+    def test_stdio_server_lists_export_tool_when_sdk_is_available(self) -> None:
+        async def run() -> None:
+            from mcp import ClientSession, StdioServerParameters
+            from mcp.client.stdio import stdio_client
+
+            with McpFixture() as fixture:
+                env = os.environ.copy()
+                source_root = Path(__file__).resolve().parents[1] / "src"
+                pythonpath = env.get("PYTHONPATH", "")
+                env["PYTHONPATH"] = (
+                    str(source_root)
+                    if not pythonpath
+                    else os.pathsep.join([str(source_root), pythonpath])
+                )
+                env["MANIM_STUDIO_REPO_ROOT"] = str(fixture.root)
+                server = StdioServerParameters(
+                    command=sys.executable,
+                    args=["-m", "manim_mcp.server"],
+                    env=env,
+                )
+                async with stdio_client(server) as (read, write):
+                    async with ClientSession(read, write) as session:
+                        await session.initialize()
+                        tools = await session.list_tools()
+
+            tool_names = {tool.name for tool in tools.tools}
+            self.assertIn("export_deck", tool_names)
+
+        asyncio.run(run())
 
 
 class McpFixture:
@@ -145,6 +196,13 @@ class McpFixture:
                 renderer: manim
                 language: en
               - deck_id: demo
+                scene_id: slides
+                source_path: slide.py
+                class_name: DemoSlide
+                base_scene_type: Slide
+                renderer: manim-slides
+                language: en
+              - deck_id: slides_only
                 scene_id: slides
                 source_path: slide.py
                 class_name: DemoSlide
@@ -186,10 +244,32 @@ class FakeRunner:
     def __call__(self, command, **kwargs):
         self.commands.append(list(command))
         self.envs.append(kwargs.get("env") or {})
+        if list(command)[:2] == ["manim-slides", "convert"]:
+            dest = Path(command[-1])
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if self.returncode == 0:
+                dest.write_bytes(b"fake pptx")
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=self.returncode,
+                stdout=self.stdout,
+                stderr=self.stderr,
+            )
         media_dir = Path(command[command.index("--media_dir") + 1])
         media_dir.mkdir(parents=True, exist_ok=True)
         if self.returncode == 0:
             (media_dir / "video.mp4").write_bytes(b"fake mp4")
+            if list(command)[:2] == ["manim-slides", "render"]:
+                root = Path(kwargs["cwd"])
+                class_name = command[-1]
+                slides_dir = root / "slides"
+                files_dir = slides_dir / "files" / class_name
+                files_dir.mkdir(parents=True, exist_ok=True)
+                (slides_dir / f"{class_name}.json").write_text(
+                    '{"slides": []}\n',
+                    encoding="utf-8",
+                )
+                (files_dir / "video.mp4").write_bytes(b"fake mp4")
         return subprocess.CompletedProcess(
             args=command,
             returncode=self.returncode,

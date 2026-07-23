@@ -117,7 +117,40 @@ All tool responses use the same structured envelope:
 
 Failures use stable error codes such as `invalid_target`, `target_not_found`,
 `catalog_invalid`, `validation_failed`, `beat_not_found`, `build_not_found`,
-`render_failed`, `unsupported`, and `internal_error`.
+`render_failed`, `export_failed`, `unsupported_deck`, `unsupported`, and
+`internal_error`.
+
+## Deck Export
+
+`export_deck` exports a registered all-slides deck through the same Studio build
+service used by the CLI. The initial supported format is `pptx`:
+
+```json
+{
+  "deck_id": "my_slides",
+  "format": "pptx",
+  "profile": "final",
+  "force": false
+}
+```
+
+PPTX export renders each registered `renderer: manim-slides` scene, collects the
+generated Manim Slides `slides/<ClassName>.json` and `slides/files/<ClassName>/`
+outputs into an isolated export build, then runs:
+
+```bash
+manim-slides convert --folder <export-build>/slides --to=pptx <ClassName...> <export-build>/export/<deck>.pptx
+```
+
+The generated `.pptx` is listed as a `presentation` artifact and can be
+discovered through `get_artifacts` or
+`manim-studio://build/{build_id}/artifacts`. HTML, PDF, ZIP, and other formats
+currently return `unsupported`. Decks that include any non-`manim-slides` scene
+return `unsupported_deck` with the incompatible scene targets.
+
+Manim Slides documents PPTX conversion as experimental because playback support
+can vary between PowerPoint and LibreOffice versions. PowerPoint or LibreOffice
+is not required to generate the file in the runtime container.
 
 ## Safety Model
 
@@ -153,5 +186,6 @@ It consumes a failed build manifest and logs, then creates a staged proposal onl
 for supported minimal repairs. Unsupported failures return structured
 diagnostics instead of editing.
 
-`export_deck` is present for MCP surface compatibility but currently returns
-`unsupported` because Manim Studio does not yet have an export service.
+`export_deck` does not expose arbitrary shell execution. It accepts only a
+registered deck ID, a supported format, a render profile, and the explicit
+`force` override used by existing render/build services.

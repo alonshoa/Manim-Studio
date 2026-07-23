@@ -8,7 +8,7 @@ import textwrap
 import unittest
 from pathlib import Path
 
-from manim_studio.cli import build_parser, main, run_build, run_render
+from manim_studio.cli import build_parser, main, run_build, run_export, run_render
 from manim_studio.profiles import profile_names
 
 
@@ -18,6 +18,7 @@ class StudioCliTests(unittest.TestCase):
 
         self.assertEqual(profile_names(), find_profile_choices(parser, "render"))
         self.assertEqual(profile_names(), find_profile_choices(parser, "build"))
+        self.assertEqual(profile_names(), find_profile_choices(parser, "export"))
 
     def test_list_prints_decks_and_scenes(self) -> None:
         with StudioFixture() as fixture:
@@ -189,6 +190,66 @@ class StudioCliTests(unittest.TestCase):
         self.assertEqual(4, len(runner.commands))
         self.assertIn("Deck build success:", output.getvalue())
 
+    def test_export_deck_uses_fake_runner(self) -> None:
+        with StudioFixture() as fixture:
+            runner = FakeRunner(returncode=0)
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = run_export(
+                    "slides_only",
+                    "pptx",
+                    "draft",
+                    repo_root=fixture.root,
+                    runner=runner,
+                )
+
+        self.assertEqual(0, exit_code)
+        self.assertEqual(
+            ["manim-slides", "convert"],
+            runner.commands[-1][:2],
+        )
+        self.assertIn("Deck export success:", output.getvalue())
+        self.assertIn("export/slides-only.pptx", output.getvalue())
+
+    def test_export_deck_reports_invalid_requests(self) -> None:
+        with StudioFixture() as fixture:
+            missing_output = io.StringIO()
+            with contextlib.redirect_stdout(missing_output):
+                missing = run_export(
+                    "missing",
+                    "pptx",
+                    "draft",
+                    repo_root=fixture.root,
+                    runner=FakeRunner(returncode=0),
+                )
+
+            mixed_output = io.StringIO()
+            with contextlib.redirect_stdout(mixed_output):
+                mixed = run_export(
+                    "demo",
+                    "pptx",
+                    "draft",
+                    repo_root=fixture.root,
+                    runner=FakeRunner(returncode=0),
+                )
+
+            unsupported_output = io.StringIO()
+            with contextlib.redirect_stdout(unsupported_output):
+                unsupported = run_export(
+                    "slides_only",
+                    "html",
+                    "draft",
+                    repo_root=fixture.root,
+                    runner=FakeRunner(returncode=0),
+                )
+
+        self.assertEqual(1, missing)
+        self.assertIn("Target not found: missing", missing_output.getvalue())
+        self.assertEqual(1, mixed)
+        self.assertIn("unsupported_deck", mixed_output.getvalue())
+        self.assertEqual(1, unsupported)
+        self.assertIn("unsupported", unsupported_output.getvalue())
+
     def test_inspect_reports_manifest_validation_failure(self) -> None:
         with StudioFixture() as fixture:
             fixture.add_selected_broken_scene()
@@ -267,6 +328,13 @@ class StudioFixture:
                 renderer: manim
                 language: en
               - deck_id: demo
+                scene_id: slides
+                source_path: slide.py
+                class_name: DemoSlide
+                base_scene_type: Slide
+                renderer: manim-slides
+                language: en
+              - deck_id: slides_only
                 scene_id: slides
                 source_path: slide.py
                 class_name: DemoSlide
@@ -368,10 +436,32 @@ class FakeRunner:
     def __call__(self, command, **kwargs):
         self.commands.append(list(command))
         self.envs.append(kwargs.get("env") or {})
+        if list(command)[:2] == ["manim-slides", "convert"]:
+            dest = Path(command[-1])
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if self.returncode == 0:
+                dest.write_bytes(b"fake pptx")
+            return subprocess.CompletedProcess(
+                args=command,
+                returncode=self.returncode,
+                stdout=self.stdout,
+                stderr=self.stderr,
+            )
         media_dir = Path(command[command.index("--media_dir") + 1])
         media_dir.mkdir(parents=True, exist_ok=True)
         if self.returncode == 0:
             (media_dir / "video.mp4").write_bytes(b"fake mp4")
+            if list(command)[:2] == ["manim-slides", "render"]:
+                root = Path(kwargs["cwd"])
+                class_name = command[-1]
+                slides_dir = root / "slides"
+                files_dir = slides_dir / "files" / class_name
+                files_dir.mkdir(parents=True, exist_ok=True)
+                (slides_dir / f"{class_name}.json").write_text(
+                    '{"slides": []}\n',
+                    encoding="utf-8",
+                )
+                (files_dir / "video.mp4").write_bytes(b"fake mp4")
         return subprocess.CompletedProcess(
             args=command,
             returncode=self.returncode,

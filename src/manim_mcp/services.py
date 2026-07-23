@@ -8,7 +8,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 from manim_studio.beats import beat_by_id, beats_to_json, discover_entry_beats
+from manim_studio.builds import ExportDeckError
 from manim_studio.builds import build_deck as run_build_deck
+from manim_studio.builds import export_deck as run_export_deck
 from manim_studio.builds import inspect_build, render_scene as run_render_scene
 from manim_studio.catalog import (
     CatalogEntry,
@@ -479,7 +481,9 @@ def propose_render_debug_patch(
 
 def export_deck(
     deck_id: str,
-    format: str,
+    format: str = "pptx",
+    profile: str = "final",
+    force: bool = False,
     context: StudioContext | None = None,
 ) -> dict[str, Any]:
     ctx = context or default_context()
@@ -489,14 +493,28 @@ def export_deck(
     entries_result = _load_entries(ctx)
     if not entries_result["ok"]:
         return entries_result
-    if not list_deck_entries(entries_result["entries"], deck_id):
+    entries = list_deck_entries(entries_result["entries"], deck_id)
+    if not entries:
         return failure("target_not_found", f"deck not found: {deck_id}")
 
-    return failure(
-        "unsupported",
-        "deck export is not implemented yet",
-        data={"deck_id": deck_id, "format": format},
-    )
+    profile_result = _profile(profile)
+    if not profile_result["ok"]:
+        return profile_result
+
+    try:
+        build = run_export_deck(
+            ctx.repo_root,
+            deck_id,
+            entries,
+            profile_result["profile"],
+            format=format,
+            builds_root=ctx.builds_root,
+            runner=ctx.runner,
+            force=force,
+        )
+    except ExportDeckError as exc:
+        return failure(exc.code, exc.message, data=exc.detail, detail=exc.detail)
+    return _build_response(ctx, build.build_id)
 
 
 def conventions_resource(context: StudioContext | None = None) -> dict[str, Any]:
@@ -541,11 +559,14 @@ def _build_response(ctx: StudioContext, build_id: str) -> dict[str, Any]:
         "beats": inspection["beats"],
     }
     if result.get("status") != "success":
-        code = (
-            "validation_failed"
-            if failure_class == "validation_failed"
-            else "render_failed"
-        )
+        if result.get("kind") == "export":
+            code = "export_failed"
+        else:
+            code = (
+                "validation_failed"
+                if failure_class == "validation_failed"
+                else "render_failed"
+            )
         return failure(
             code,
             f"build {result.get('status', 'failed')}: {build_id}",
