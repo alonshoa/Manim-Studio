@@ -293,6 +293,7 @@ def _import_source(
 
     module = importlib.util.module_from_spec(spec)
     original_path = list(sys.path)
+    sys.path.insert(0, str(repo_root / "src"))
     sys.path.insert(0, str(repo_root))
     try:
         spec.loader.exec_module(module)

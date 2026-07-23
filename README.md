@@ -45,7 +45,13 @@ Implemented:
 - `manim_kit` helpers for themes, Hebrew text, RTL columns, panels, slide bases,
   and beat support.
 - `manim-mcp` local stdio server with resources and tools for catalog, scene,
-  validation, render, build, log, and artifact workflows.
+  validation, render, build, log, artifact, and staged patch workflows.
+- Safe staged MCP scene edits under `builds/staged/<proposal_id>/workspace`,
+  with inspectable diffs, staged validation, staged draft renders, and explicit
+  apply checks before canonical scene files are changed.
+- First Manim-specific skill contract for render-debugging assistance, starting
+  with conservative failed-render-to-patch proposals for supported NameError
+  repairs.
 - Unit tests covering catalog handling, validation, profiles, CLI behavior,
   build metadata, beat discovery, Manim Kit exports, and MCP services.
 
@@ -55,7 +61,7 @@ Still planned or intentionally unsupported:
 - Visual regression checks beyond review-frame/contact-sheet artifacts.
 - Cloud rendering, distributed workers, or GPU/OpenGL as a default workflow.
 - A YAML-only animation language.
-- Autonomous scene editing through MCP.
+- Fully autonomous scene editing through MCP.
 - Unrestricted shell access through MCP.
 
 Quick Start
@@ -260,6 +266,12 @@ Tools include:
 - `build_deck`
 - `get_build_log`
 - `get_artifacts`
+- `propose_scene_patch`
+- `inspect_scene_patch`
+- `validate_scene_patch`
+- `render_scene_patch`
+- `apply_scene_patch`
+- `propose_render_debug_patch`
 - `export_deck`
 
 All MCP responses use a structured envelope with `ok`, `status`, `data`, and

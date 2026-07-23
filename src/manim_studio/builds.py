@@ -448,9 +448,14 @@ def _run_logged_command(
 ) -> dict[str, object]:
     stdout = ""
     stderr = ""
-    env = None
+    env = os.environ.copy()
+    workspace_src = cwd / "src"
+    existing_pythonpath = env.get("PYTHONPATH", "")
+    pythonpath_parts = [str(workspace_src), str(cwd)]
+    if existing_pythonpath:
+        pythonpath_parts.append(existing_pythonpath)
+    env["PYTHONPATH"] = os.pathsep.join(pythonpath_parts)
     if beat_id is not None:
-        env = os.environ.copy()
         env["MANIM_STUDIO_BEAT"] = beat_id
     try:
         completed = runner(

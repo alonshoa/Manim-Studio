@@ -94,6 +94,40 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         return services.get_artifacts(build_id, ctx)
 
     @mcp.tool()
+    def propose_scene_patch(
+        target: str,
+        edits: list[dict],
+        rationale: str = "",
+    ) -> dict:
+        """Create a staged patch proposal for one registered scene source."""
+        return services.propose_scene_patch(target, edits, rationale, ctx)
+
+    @mcp.tool()
+    def inspect_scene_patch(proposal_id: str) -> dict:
+        """Inspect staged patch metadata, diff, validation, and render state."""
+        return services.inspect_scene_patch(proposal_id, ctx)
+
+    @mcp.tool()
+    def validate_scene_patch(proposal_id: str, profile: str = "draft") -> dict:
+        """Validate a staged patch proposal inside its isolated workspace."""
+        return services.validate_scene_patch(proposal_id, profile, ctx)
+
+    @mcp.tool()
+    def render_scene_patch(proposal_id: str) -> dict:
+        """Draft-render a staged patch proposal inside its isolated workspace."""
+        return services.render_scene_patch(proposal_id, ctx)
+
+    @mcp.tool()
+    def apply_scene_patch(proposal_id: str, confirm: str = "apply") -> dict:
+        """Apply an approved staged patch to the canonical registered scene source."""
+        return services.apply_scene_patch(proposal_id, confirm, ctx)
+
+    @mcp.tool()
+    def propose_render_debug_patch(target: str, build_id: str) -> dict:
+        """Create a conservative staged patch proposal from a failed render build."""
+        return services.propose_render_debug_patch(target, build_id, ctx)
+
+    @mcp.tool()
     def export_deck(deck_id: str, format: str) -> dict:
         """Report deck export support status."""
         return services.export_deck(deck_id, format, ctx)

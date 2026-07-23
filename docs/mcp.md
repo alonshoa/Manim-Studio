@@ -96,6 +96,12 @@ Tools:
 - `build_deck`
 - `get_build_log`
 - `get_artifacts`
+- `propose_scene_patch`
+- `inspect_scene_patch`
+- `validate_scene_patch`
+- `render_scene_patch`
+- `apply_scene_patch`
+- `propose_render_debug_patch`
 - `export_deck`
 
 All tool responses use the same structured envelope:
@@ -115,9 +121,37 @@ Failures use stable error codes such as `invalid_target`, `target_not_found`,
 
 ## Safety Model
 
-The server does not expose a shell tool and does not expose direct scene-editing
-operations. Tools accept registered deck IDs, scene IDs, build IDs, and log
-stream names; path-like input is rejected before reaching the Studio services.
+The server does not expose a shell tool and does not expose direct arbitrary
+scene-editing operations. Tools accept registered deck IDs, scene IDs, build
+IDs, proposal IDs, and log stream names; path-like input is rejected before
+reaching the Studio services.
+
+Scene edits use an explicit staged workflow:
+
+```text
+propose_scene_patch
+-> inspect_scene_patch
+-> validate_scene_patch
+-> render_scene_patch
+-> apply_scene_patch
+```
+
+Patch proposals are isolated under `builds/staged/<proposal_id>/workspace`.
+The canonical scene source is not modified until `apply_scene_patch` receives
+`confirm: "apply"` and the proposal has passed staged validation and draft
+rendering. Applying also refuses stale proposals when the registered source path
+or source checksum changed after proposal creation.
+
+Structured patch operations are the only supported edit input:
+
+- `replace`: `start_line`, `end_line`, `text`, optional `expected`
+- `insert_after`: `line`, `text`, optional `expected`
+- `delete`: `start_line`, `end_line`, optional `expected`
+
+`propose_render_debug_patch` implements the first Manim-specific skill surface.
+It consumes a failed build manifest and logs, then creates a staged proposal only
+for supported minimal repairs. Unsupported failures return structured
+diagnostics instead of editing.
 
 `export_deck` is present for MCP surface compatibility but currently returns
 `unsupported` because Manim Studio does not yet have an export service.

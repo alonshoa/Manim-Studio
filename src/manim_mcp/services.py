@@ -19,6 +19,7 @@ from manim_studio.catalog import (
     parse_scene_target,
 )
 from manim_studio.profiles import get_profile, profile_names
+from manim_studio import staged_edits
 from manim_studio.validation import validate_scene_preflight
 
 from manim_mcp.schemas import failure, success
@@ -311,6 +312,171 @@ def get_build_log(
     )
 
 
+def propose_scene_patch(
+    target: str,
+    edits: list[dict[str, Any]],
+    rationale: str = "",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    entry_result = _select_scene(ctx, target)
+    if not entry_result["ok"]:
+        return entry_result
+    try:
+        data = staged_edits.propose_scene_patch(
+            ctx.repo_root,
+            ctx.catalog_path,
+            ctx.builds_root,
+            entry_result["entry"],
+            edits,
+            rationale,
+        )
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "scene patch could not be proposed", detail=str(exc))
+    return success(data, status="proposed")
+
+
+def inspect_scene_patch(
+    proposal_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(staged_edits.inspect_scene_patch(ctx.repo_root, ctx.builds_root, proposal_id))
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+
+
+def validate_scene_patch(
+    proposal_id: str,
+    profile: str = "draft",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    profile_result = _profile(profile)
+    if not profile_result["ok"]:
+        return profile_result
+    try:
+        data = staged_edits.validate_scene_patch(
+            ctx.repo_root,
+            ctx.builds_root,
+            proposal_id,
+            profile_result["profile"],
+            check_executables=ctx.check_executables,
+        )
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    validation = data.get("validation")
+    if isinstance(validation, dict) and validation.get("status") != "success":
+        return failure(
+            "validation_failed",
+            f"staged scene validation failed for proposal {proposal_id}",
+            status="failed",
+            data=data,
+            detail=validation.get("preflight", {}).get("issues"),
+        )
+    return success(data)
+
+
+def render_scene_patch(
+    proposal_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    profile_result = _profile("draft")
+    if not profile_result["ok"]:
+        return profile_result
+    try:
+        data, build = staged_edits.render_scene_patch(
+            ctx.repo_root,
+            ctx.builds_root,
+            proposal_id,
+            profile_result["profile"],
+            runner=ctx.runner,
+            check_executables=ctx.check_executables,
+        )
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    if build.status != "success":
+        return failure(
+            "render_failed",
+            f"staged draft render failed for proposal {proposal_id}",
+            status=build.status,
+            data=data,
+            detail={"build_id": build.build_id},
+        )
+    return success(data, status=build.status)
+
+
+def apply_scene_patch(
+    proposal_id: str,
+    confirm: str = "apply",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        proposal = staged_edits.inspect_scene_patch(ctx.repo_root, ctx.builds_root, proposal_id)
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+
+    target = proposal.get("target")
+    if not isinstance(target, str):
+        return failure("internal_error", "proposal metadata is missing target")
+    entry_result = _select_scene(ctx, target)
+    if not entry_result["ok"]:
+        return entry_result
+
+    try:
+        data = staged_edits.apply_scene_patch(
+            ctx.repo_root,
+            ctx.builds_root,
+            proposal_id,
+            entry_result["entry"],
+            confirm,
+        )
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "scene patch could not be applied", detail=str(exc))
+    return success(data, status="applied")
+
+
+def propose_render_debug_patch(
+    target: str,
+    build_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    entry_result = _select_scene(ctx, target)
+    if not entry_result["ok"]:
+        return entry_result
+    inspection_result = _inspect(ctx, build_id)
+    if not inspection_result["ok"]:
+        return inspection_result
+
+    inspection = inspection_result["inspection"]
+    manifest = inspection["result"]
+    stdout = _log_text(inspection, "stdout")
+    stderr = _log_text(inspection, "stderr")
+    try:
+        data = staged_edits.propose_render_debug_patch(
+            ctx.repo_root,
+            ctx.catalog_path,
+            ctx.builds_root,
+            entry_result["entry"],
+            manifest,
+            stdout,
+            stderr,
+        )
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "render-debug patch could not be proposed", detail=str(exc))
+    return success(data, status="proposed")
+
+
 def export_deck(
     deck_id: str,
     format: str,
@@ -400,6 +566,23 @@ def _inspect(ctx: StudioContext, build_id: str) -> dict[str, Any]:
     except OSError as exc:
         return failure("internal_error", "build could not be inspected", detail=str(exc))
     return {"ok": True, "inspection": inspection}
+
+
+def _log_text(inspection: dict[str, Any], stream: Literal["stdout", "stderr"]) -> str:
+    result = inspection["result"]
+    log_name = result.get(f"{stream}_log")
+    if not isinstance(log_name, str) or not log_name:
+        return ""
+    log_path = (inspection["build_dir"] / log_name).resolve()
+    try:
+        log_path.relative_to(inspection["build_dir"].resolve())
+        return log_path.read_text(encoding="utf-8")
+    except OSError:
+        return ""
+
+
+def _staged_error(exc: staged_edits.StagedEditError) -> dict[str, Any]:
+    return failure(exc.code, exc.message, detail=exc.detail)
 
 
 def _select_scene(ctx: StudioContext, target: str) -> dict[str, Any]:
