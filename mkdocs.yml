@@ -1,0 +1,69 @@
+site_name: Manim Studio
+site_description: Local reproducible workspace for Manim presentation work.
+site_url: https://alonshoa.github.io/Manim-Studio/
+repo_name: alonshoa/Manim-Studio
+repo_url: https://github.com/alonshoa/Manim-Studio
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - External Projects: getting-started/external-projects.md
+  - Core Concepts:
+      - Project Model: concepts/project-model.md
+      - Catalog: concepts/catalog.md
+      - Render Profiles: concepts/render-profiles.md
+  - Workflows:
+      - Render A Scene: workflows/render-a-scene.md
+      - Render A Beat: workflows/render-a-beat.md
+      - Build A Deck: workflows/build-a-deck.md
+      - Export PPTX: workflows/export-pptx.md
+      - Debug Render Failures: workflows/debug-render-failures.md
+  - Examples:
+      - Overview: examples/index.md
+      - Basic Scenes: examples/basic-scenes.md
+      - Pilot Scenes: examples/pilot-scenes.md
+  - Manim Kit:
+      - Overview: manim-kit/index.md
+      - Hebrew And RTL: manim-kit/hebrew-rtl.md
+      - Slides And Beats: manim-kit/slides-and-beats.md
+      - Panels And Theme: manim-kit/panels-theme.md
+  - MCP And Agents:
+      - Overview: mcp/index.md
+      - Resources And Tools: mcp/resources-and-tools.md
+      - Staged Edits: mcp/staged-edits.md
+      - Skill Contracts: mcp/skill-contracts.md
+  - Reference:
+      - CLI: reference/cli.md
+      - Repository Layout: reference/repository-layout.md
+      - Configuration: reference/configuration.md
+      - Troubleshooting: reference/troubleshooting.md
+      - MCP Conventions Resource: conventions.md
+  - Contributing:
+      - Development: contributing/development.md
+      - Documentation: contributing/documentation.md
+      - Scene Migration: contributing/scene-migration.md

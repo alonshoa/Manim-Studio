@@ -22,6 +22,7 @@ pip-wheel-metadata/
 media/
 slides/
 builds/
+site/
 *_assets/
 
 # Logs and generated artifacts
