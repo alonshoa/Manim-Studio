@@ -39,6 +39,8 @@ class CatalogValidationTests(unittest.TestCase):
                 ("matrix_work", "vectors_ab_to_v"),
                 ("losses", "binary_cross_entropy"),
                 ("matrix_work", "parametric_curve_3d"),
+                ("recursion", "visual_recursion_tree"),
+                ("recursion", "count_bottles"),
             },
             {(entry.deck_id, entry.scene_id) for entry in result.entries},
         )

@@ -70,3 +70,31 @@ scenes:
     render_command: "manim -ql decks/matrix_work/parametric_curve_3d.py ParametricCurve3D"
     baseline_path: baselines/matrix_work/parametric_curve_3d
     migration_notes: "Do not catalog book_shelf.py directly; this is a cleaned scene with explicit parameters and no absolute-path assets."
+  - deck_id: recursion
+    scene_id: visual_recursion_tree
+    source_path: decks/recursion/visual_recursion_tree.py
+    class_name: VisualRecursionTree
+    base_scene_type: Scene
+    renderer: manim
+    language: en
+    description: "2D visual explanation of recursion through a self-similar problem tree, base cases, and return flow."
+    asset_notes: "No external assets."
+    font_notes: "Uses default Manim Text fonts; no LaTeX or RTL requirements."
+    parameter_notes: "LEVEL_YS, LEVEL_SPANS, LEVEL_WIDTHS, NODE_HEIGHT, and color constants control the recursive tree layout and pacing."
+    render_command: "manim -ql decks/recursion/visual_recursion_tree.py VisualRecursionTree"
+    baseline_path: baselines/recursion/visual_recursion_tree
+    migration_notes: "New focused scene created from the recursion director brief; uses BeatMixin checkpoints for Manim Studio review."
+  - deck_id: recursion
+    scene_id: count_bottles
+    source_path: decks/recursion/count_bottles.py
+    class_name: CountBottlesRecursion
+    base_scene_type: Slide
+    renderer: manim-slides
+    language: en
+    description: "Checkpointed 2D scene explaining recursion through counting bottles in a box, with explicit base case and recursive return flow."
+    asset_notes: "No external assets; boxes, bottles, arrows, machine, and result tokens are drawn with Manim primitives."
+    font_notes: "Uses default Manim Text fonts; no LaTeX or RTL requirements."
+    parameter_notes: "BOTTLE_COUNT controls the number of bottles; layout is designed for 3 to 5 bottles with default 4."
+    render_command: "manim-slides render -ql decks/recursion/count_bottles.py CountBottlesRecursion"
+    baseline_path: baselines/recursion/count_bottles
+    migration_notes: "New scene created from the counting-bottles recursion director brief; uses StudioSlide and BeatMixin checkpoints."
