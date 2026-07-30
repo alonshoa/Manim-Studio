@@ -4,6 +4,7 @@ The `examples` deck contains the smallest registered smoke scenes.
 
 ## SquareToCircle
 
+![SquareToCircle](../assets/examples/square_to_circle.png)
 Target:
 
 ```text
@@ -37,6 +38,8 @@ manim -ql examples/basic_scene.py SquareToCircle
 ```
 
 ## BasicSlide
+
+![BasicSlide](../assets/examples/basic_slide.png)
 
 Target:
 

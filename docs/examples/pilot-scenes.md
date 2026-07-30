@@ -5,6 +5,10 @@ stores durable metadata; this page adds implementation intent.
 
 ## VectorsABtoV
 
+![VectorsABtoV](../assets/examples/vectors_ab_to_v.png)
+
+
+
 Source:
 
 ```text
@@ -37,6 +41,10 @@ helper isolates difficult behavior.
 
 ## BinaryCrossEntropyLoss
 
+![BinaryCrossEntropyLoss](../assets/examples/binary_cross_entropy.png)
+
+
+
 Source:
 
 ```text
@@ -56,6 +64,10 @@ Safe extensions: add more highlighted probabilities or split the scene into
 named beats later. Keep the first migrated version focused on renderability.
 
 ## ParametricCurve3D
+
+![ParametricCurve3D](../assets/examples/parametric_curve_3d.png)
+
+
 
 Source:
 
