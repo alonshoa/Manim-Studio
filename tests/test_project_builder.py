@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 import types
@@ -44,6 +45,7 @@ class ProjectBuilderTests(unittest.TestCase):
             expected_files = {
                 ".gitignore",
                 "README.md",
+                "AGENTS.md",
                 "compose.yml",
                 "mcp.manim-studio.json",
                 "catalog/scenes.yaml",
@@ -65,6 +67,10 @@ class ProjectBuilderTests(unittest.TestCase):
             self.assertEqual(expected_files, relative_written)
             self.assertIn("image: manim-studio:test", (root / "compose.yml").read_text())
             self.assertIn("MANIM_STUDIO_REPO_ROOT: /workspace", (root / "compose.yml").read_text())
+            self.assertIn(
+                "Python scene files are the source of truth",
+                (root / "AGENTS.md").read_text(),
+            )
 
             mcp_config = json.loads((root / "mcp.manim-studio.json").read_text())
             args = mcp_config["mcpServers"]["manim-studio"]["args"]
@@ -85,6 +91,16 @@ class ProjectBuilderTests(unittest.TestCase):
 
             with self.assertRaises(ProjectBuilderError):
                 create_project(options)
+
+    def test_create_project_does_not_run_docker_subprocesses(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir)
+            options = default_options(path=root, name="Demo Project")
+
+            with patch.object(subprocess, "run") as run:
+                create_project(options)
+
+            run.assert_not_called()
 
     def test_force_allows_overwriting_generated_files(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -132,8 +148,9 @@ class ProjectBuilderTests(unittest.TestCase):
         ps1 = (repo_root / "scripts" / "new_manim_project.ps1").read_text(encoding="utf-8")
 
         self.assertIn("scripts\\new_manim_project.ps1", root_cmd)
-        self.assertIn("-m manim_studio.project_builder", ps1)
-        self.assertIn("--studio-root", ps1)
+        self.assertIn("-m manim_studio.cli project init", ps1)
+        self.assertNotIn("manim_studio.project_builder", ps1)
+        self.assertNotIn("--studio-root", ps1)
 
 
 if __name__ == "__main__":

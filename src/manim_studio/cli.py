@@ -601,6 +601,70 @@ def run_inspect(
     return 0
 
 
+def run_project_init(
+    path: Path | str,
+    name: str,
+    deck_id: str | None = None,
+    scene_id: str | None = None,
+    class_name: str | None = None,
+    language: str | None = None,
+    image_tag: str | None = None,
+    force: bool = False,
+) -> int:
+    from manim_studio.project_builder import ProjectBuilderError, create_project, default_options
+
+    try:
+        options = default_options(
+            path=path,
+            name=name,
+            deck_id=deck_id,
+            scene_id=scene_id,
+            class_name=class_name,
+            language=language,
+            image_tag=image_tag,
+            force=force,
+        )
+        result = create_project(options)
+    except ProjectBuilderError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Created Manim Studio project: {result.root}")
+    print(f"Registered starter target: {result.target}")
+    print(f"Files written: {len(result.files_written)}")
+    for path_written in result.files_written:
+        print(f"- {path_written.relative_to(result.root).as_posix()}")
+    print("\nNext command:")
+    print(f"  studio project verify {result.root}")
+    return 0
+
+
+def run_project_verify(path: Path | str, render: bool = False) -> int:
+    from manim_studio.project_verifier import verify_project
+
+    result = verify_project(path, render=render)
+    for stage in result.completed_stages:
+        print(f"[OK] {stage.name}: {stage.detail}")
+
+    if result.failed_stage is not None:
+        stage = result.failed_stage
+        print(f"[FAILED] {stage.name}: {stage.detail}")
+        print()
+        print(result.message)
+        print()
+        print("Rerun after fixing the failed stage:")
+        command = f"studio project verify {result.project_root}"
+        if render:
+            command += " --render"
+        print(command)
+        return 1
+
+    print(result.message)
+    if result.artifact is not None:
+        print(f"Artifact: {result.artifact}")
+    return 0
+
+
 def _repo_root(repo_root: Path | str | None) -> Path:
     return (Path.cwd() if repo_root is None else Path(repo_root)).resolve()
 
@@ -811,6 +875,50 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Catalog file path for --catalog validation. Defaults to {DEFAULT_CATALOG_PATH}.",
     )
 
+    project_parser = subparsers.add_parser(
+        "project",
+        help="Create and verify external Manim Studio projects.",
+    )
+    project_subparsers = project_parser.add_subparsers(
+        dest="project_command",
+        required=True,
+    )
+    init_parser = project_subparsers.add_parser(
+        "init",
+        help="Generate an external Manim Studio project.",
+    )
+    init_parser.add_argument("path", help="Directory where the project will be generated.")
+    init_parser.add_argument("--name", required=True, help="Human-readable project name.")
+    init_parser.add_argument("--deck-id", default=None, help="Starter deck ID.")
+    init_parser.add_argument("--scene-id", default=None, help="Starter scene ID.")
+    init_parser.add_argument("--class-name", default=None, help="Starter scene class name.")
+    init_parser.add_argument(
+        "--language",
+        default=None,
+        help="Starter scene language metadata. Defaults to en.",
+    )
+    init_parser.add_argument(
+        "--image-tag",
+        default=None,
+        help="Runtime image tag. Defaults to manim-studio:local.",
+    )
+    init_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite generated files in an existing non-empty directory.",
+    )
+
+    verify_parser = project_subparsers.add_parser(
+        "verify",
+        help="Verify the Docker runtime for a generated external project.",
+    )
+    verify_parser.add_argument("path", help="Generated external project directory.")
+    verify_parser.add_argument(
+        "--render",
+        action="store_true",
+        help="Also run a draft render and confirm a host-visible artifact.",
+    )
+
     catalog_parser = subparsers.add_parser(
         "catalog",
         help="Inspect and validate scene catalog metadata.",
@@ -907,6 +1015,21 @@ def main(argv: Sequence[str] | None = None) -> int:
             repo_root=args.repo_root,
             catalog_path=args.catalog_path,
         )
+
+    if args.command == "project" and args.project_command == "init":
+        return run_project_init(
+            args.path,
+            args.name,
+            deck_id=args.deck_id,
+            scene_id=args.scene_id,
+            class_name=args.class_name,
+            language=args.language,
+            image_tag=args.image_tag,
+            force=args.force,
+        )
+
+    if args.command == "project" and args.project_command == "verify":
+        return run_project_verify(args.path, render=args.render)
 
     if args.command == "catalog" and args.catalog_command == "validate":
         return run_catalog_validate(

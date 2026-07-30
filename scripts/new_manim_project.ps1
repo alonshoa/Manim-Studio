@@ -29,5 +29,5 @@ else {
     $env:PYTHONPATH = "$SrcPath"
 }
 
-& $pythonCommand @pythonArgs -m manim_studio.project_builder --studio-root "$RepoRoot" @args
+& $pythonCommand @pythonArgs -m manim_studio.cli project init @args
 exit $LASTEXITCODE

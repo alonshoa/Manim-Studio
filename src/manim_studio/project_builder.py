@@ -1,14 +1,9 @@
 from __future__ import annotations
 
-import argparse
 import json
 import re
-import shutil
-import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 
 DEFAULT_IMAGE_TAG = "manim-studio:local"
@@ -134,140 +129,6 @@ def create_project(options: ProjectOptions) -> ProjectCreationResult:
     return ProjectCreationResult(root=root, target=options.target, files_written=tuple(written))
 
 
-def docker_available() -> bool:
-    return shutil.which("docker") is not None
-
-
-def docker_image_exists(image_tag: str) -> bool:
-    completed = subprocess.run(
-        ["docker", "image", "inspect", image_tag],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    return completed.returncode == 0
-
-
-def build_runtime_image(image_tag: str, studio_root: Path) -> int:
-    completed = subprocess.run(
-        ["docker", "build", "--target", "runtime", "-t", image_tag, str(studio_root)],
-        check=False,
-    )
-    return completed.returncode
-
-
-def run_validation(root: Path, target: str) -> int:
-    commands = (
-        ["docker", "compose", "run", "--rm", "studio", "studio", "doctor", "--catalog"],
-        ["docker", "compose", "run", "--rm", "studio", "studio", "list"],
-        ["docker", "compose", "run", "--rm", "studio", "studio", "validate", target],
-    )
-    for command in commands:
-        print(f"\n> {' '.join(command)}")
-        completed = subprocess.run(command, cwd=root, check=False)
-        if completed.returncode != 0:
-            return completed.returncode
-    return 0
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-
-    project_path = args.path or _prompt_required("Project path")
-    project_name = args.name or _prompt_required("Project name")
-
-    try:
-        options = default_options(
-            path=project_path,
-            name=project_name,
-            deck_id=args.deck_id,
-            scene_id=args.scene_id,
-            class_name=args.class_name,
-            language=args.language,
-            image_tag=args.image_tag,
-            force=args.force,
-        )
-        result = create_project(options)
-    except ProjectBuilderError as exc:
-        print(f"Error: {exc}", file=sys.stderr)
-        return 1
-
-    print(f"Created Manim Studio project: {result.root}")
-    print(f"Registered starter scene: {result.target}")
-    print(f"Files written: {len(result.files_written)}")
-
-    if not docker_available():
-        print("\nDocker was not found on PATH; skipping runtime validation.")
-        _print_next_steps(result)
-        return 0
-
-    image_ready = docker_image_exists(options.image_tag)
-    if not image_ready:
-        print(f"\nDocker image not found: {options.image_tag}")
-        should_build = args.yes or _confirm("Build the Manim Studio runtime image now?")
-        if should_build:
-            studio_root = Path(args.studio_root).expanduser().resolve()
-            build_exit = build_runtime_image(options.image_tag, studio_root)
-            if build_exit != 0:
-                print("Runtime image build failed; skipping validation.", file=sys.stderr)
-                _print_next_steps(result)
-                return build_exit
-            image_ready = True
-        else:
-            print("Runtime image build skipped; skipping validation.")
-
-    if image_ready:
-        validation_exit = run_validation(result.root, result.target)
-        if validation_exit != 0:
-            print("\nValidation failed. The project files were still generated.", file=sys.stderr)
-            _print_next_steps(result)
-            return validation_exit
-
-    _print_next_steps(result)
-    return 0
-
-
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        prog="new-manim-project",
-        description="Create a Docker/MCP-ready external Manim Studio slide project.",
-    )
-    parser.add_argument("--path", "-Path", dest="path", default=None)
-    parser.add_argument("--name", "-Name", dest="name", default=None)
-    parser.add_argument("--deck-id", "-DeckId", dest="deck_id", default=None)
-    parser.add_argument("--scene-id", "-SceneId", dest="scene_id", default=None)
-    parser.add_argument("--class-name", "-ClassName", dest="class_name", default=None)
-    parser.add_argument("--language", "-Language", dest="language", default=DEFAULT_LANGUAGE)
-    parser.add_argument("--image-tag", "-ImageTag", dest="image_tag", default=DEFAULT_IMAGE_TAG)
-    parser.add_argument("--yes", "-Yes", action="store_true")
-    parser.add_argument("--force", "-Force", action="store_true")
-    parser.add_argument(
-        "--studio-root",
-        default=Path.cwd(),
-        help=argparse.SUPPRESS,
-    )
-    return parser
-
-
-def _prompt_required(label: str) -> str:
-    while True:
-        value = input(f"{label}: ").strip()
-        if value:
-            return value
-
-
-def _confirm(question: str) -> bool:
-    answer = input(f"{question} [y/N]: ").strip().lower()
-    return answer in {"y", "yes"}
-
-
-def _print_next_steps(result: ProjectCreationResult) -> None:
-    print("\nNext commands:")
-    print(r"  tools\render-draft.cmd")
-    print(r"  tools\start-mcp.cmd")
-
-
 def _validate_identifier(value: str, label: str) -> None:
     if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]*", value):
         raise ProjectBuilderError(
@@ -288,6 +149,7 @@ def _render_files(options: ProjectOptions) -> tuple[tuple[Path, str], ...]:
         for path, content in (
             (".gitignore", _gitignore()),
             ("README.md", _readme(options)),
+            ("AGENTS.md", _agents(options)),
             ("compose.yml", _compose(options)),
             ("mcp.manim-studio.json", _mcp_json(options)),
             ("catalog/scenes.yaml", _catalog(options)),
@@ -365,6 +227,22 @@ themselves.
 - Target: `{options.target}`
 - Source: `decks/{options.deck_id}/{options.scene_id}.py`
 - Class: `{options.class_name}`
+"""
+
+
+def _agents(options: ProjectOptions) -> str:
+    return f"""# Manim Studio Agent Notes
+
+This is an external Manim Studio project.
+
+- Python scene files are the source of truth.
+- Every Studio scene must be registered in `catalog/scenes.yaml`.
+- Validate the catalog before rendering.
+- Use the `draft` profile during iteration.
+- Generated `builds/`, `media/`, and `slides/` files are not source files.
+- Inspect build artifacts after rendering.
+- Use structured Studio CLI or MCP operations where available.
+- Starter target: `{options.target}`.
 """
 
 
@@ -559,7 +437,3 @@ def _py_string(value: str) -> str:
 
 def _yaml_string(value: str) -> str:
     return json.dumps(value)
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

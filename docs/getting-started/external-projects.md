@@ -4,6 +4,46 @@ External Manim projects can use Manim Studio without copying their scenes into
 this repository. Mount the external project at `/workspace` in the reusable
 runtime container and run `studio` from that mounted root.
 
+## Generate a Project
+
+Create a new external project:
+
+```bash
+studio project init ./demo --name "Demo Project"
+```
+
+Project generation writes the starter files only. It does not build Docker
+images, pull runtime images, validate the environment, start MCP, or render.
+
+Generated projects include:
+
+- `.gitignore`
+- `README.md`
+- `AGENTS.md`
+- `compose.yml`
+- `mcp.manim-studio.json`
+- `catalog/scenes.yaml`
+- a registered starter scene
+- `docs/conventions.md`
+- Windows command wrappers
+
+Verify the generated project separately:
+
+```bash
+studio project verify ./demo
+```
+
+Run a draft render only when explicitly requested:
+
+```bash
+studio project verify ./demo --render
+```
+
+This flow is not yet a zero-dependency public installer. Build or install the
+configured runtime image, such as `manim-studio:local`, before verification.
+Published images, public bootstrap installers, automatic Codex or Claude
+configuration, and cloud rendering are future distribution work.
+
 ## One-Shot Docker Commands
 
 Build the runtime image from the Manim Studio repository:
