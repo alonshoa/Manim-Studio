@@ -1,0 +1,105 @@
+name: Publish Container
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Trial image version to publish: 0.0.1, 0.0.2, or 0.0.3"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  publish:
+    name: Build, smoke test, and publish dev image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate trial branch and version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          case "${GITHUB_REF_NAME}" in
+            feature/project-init|project-init) ;;
+            *)
+              echo "Publishing is temporarily limited to feature/project-init or project-init."
+              exit 1
+              ;;
+          esac
+
+          case "${INPUT_VERSION}" in
+            0.0.1|0.0.2|0.0.3) ;;
+            *)
+              echo "Trial publishing only accepts 0.0.1, 0.0.2, or 0.0.3."
+              exit 1
+              ;;
+          esac
+
+          repository="${GITHUB_REPOSITORY,,}"
+          echo "IMAGE_NAME=${REGISTRY}/${repository}" >> "${GITHUB_ENV}"
+          echo "IMAGE_TAG=${INPUT_VERSION}" >> "${GITHUB_ENV}"
+
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build local dev image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: dev
+          load: true
+          tags: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
+      - name: Smoke test dev image
+        run: |
+          set -euo pipefail
+
+          image="${IMAGE_NAME}:${IMAGE_TAG}"
+          fixture="${GITHUB_WORKSPACE}/tests/fixtures/external_project"
+
+          chmod -R a+rwX "${fixture}"
+
+          docker run --rm "${image}" studio doctor
+          docker run --rm \
+            -v "${fixture}:/workspace" \
+            -w /workspace \
+            "${image}" \
+            studio doctor --catalog
+          docker run --rm \
+            -v "${fixture}:/workspace" \
+            -w /workspace \
+            "${image}" \
+            studio list
+          docker run --rm \
+            -v "${fixture}:/workspace" \
+            -w /workspace \
+            "${image}" \
+            studio catalog validate
+          docker run --rm \
+            -v "${fixture}:/workspace" \
+            -w /workspace \
+            "${image}" \
+            studio render demo/smoke --profile draft
+
+          test -d "${fixture}/builds"
+          find "${fixture}/builds" -name manifest.json -print -quit | grep .
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push trial dev image
+        run: docker push "${IMAGE_NAME}:${IMAGE_TAG}"

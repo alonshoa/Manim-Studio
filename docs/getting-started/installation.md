@@ -17,6 +17,15 @@ Build the local runtime image from the repository root:
 docker build --target runtime -t manim-studio:local .
 ```
 
+During the GHCR trial, you can also pull the published devcontainer image:
+
+```bash
+docker pull ghcr.io/alonshoa/manim-studio:0.0.1
+```
+
+The published trial tags are `0.0.1`, `0.0.2`, and `0.0.3`. Local builds using
+`manim-studio:local` remain supported while the image is being validated.
+
 The runtime image:
 
 - uses `manimcommunity/manim:v0.20.1` as its base
@@ -50,7 +59,9 @@ Install these host tools:
 
 Open the repository in VS Code and run **Dev Containers: Reopen in Container**.
 The devcontainer builds the `dev` target from the root `Dockerfile`, installs
-the package in editable mode, and runs `studio doctor` after creation.
+the package in editable mode, and runs `studio doctor` after creation. The
+published GHCR image uses the same `dev` target and includes Git, OpenSSH
+client tools, and `sudo` for contributor workflows.
 
 ## Local Python Install
 

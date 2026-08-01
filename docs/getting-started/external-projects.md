@@ -12,6 +12,12 @@ Create a new external project:
 studio project init ./demo --name "Demo Project"
 ```
 
+To generate a project that uses the GHCR trial image instead of a local image:
+
+```bash
+studio project init ./demo --name "Demo Project" --image-tag ghcr.io/alonshoa/manim-studio:0.0.1
+```
+
 Project generation writes the starter files only. It does not build Docker
 images, pull runtime images, validate the environment, start MCP, or render.
 
@@ -40,9 +46,10 @@ studio project verify ./demo --render
 ```
 
 This flow is not yet a zero-dependency public installer. Build or install the
-configured runtime image, such as `manim-studio:local`, before verification.
-Published images, public bootstrap installers, automatic Codex or Claude
-configuration, and cloud rendering are future distribution work.
+configured runtime image, such as `manim-studio:local` or
+`ghcr.io/alonshoa/manim-studio:0.0.1`, before verification. Public bootstrap
+installers, automatic Codex or Claude configuration, and cloud rendering are
+future distribution work.
 
 ## One-Shot Docker Commands
 
@@ -51,6 +58,15 @@ Build the runtime image from the Manim Studio repository:
 ```bash
 docker build --target runtime -t manim-studio:local .
 ```
+
+Or pull the published GHCR trial image:
+
+```bash
+docker pull ghcr.io/alonshoa/manim-studio:0.0.1
+```
+
+The examples below use `manim-studio:local`; replace it with
+`ghcr.io/alonshoa/manim-studio:0.0.1` to use the published trial image.
 
 Run commands against an external project:
 

@@ -63,4 +63,18 @@ CMD ["studio", "doctor"]
 
 FROM runtime AS dev
 
+USER root
+
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+        git \
+        openssh-client \
+        sudo \
+    && printf 'manimuser ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/manimuser \
+    && chmod 0440 /etc/sudoers.d/manimuser \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+USER manimuser
+
 WORKDIR /workspaces/Manim-Studio

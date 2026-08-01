@@ -36,6 +36,15 @@ Build the reusable runtime image:
 docker build --target runtime -t manim-studio:local .
 ```
 
+During the GHCR trial, you can pull the published devcontainer image instead:
+
+```bash
+docker pull ghcr.io/alonshoa/manim-studio:0.0.1
+```
+
+Local builds tagged `manim-studio:local` remain supported while the trial image
+tags `0.0.1`, `0.0.2`, and `0.0.3` are validated.
+
 For local non-container development, use Python 3.11 or newer and install the
 project in editable mode:
 
@@ -98,6 +107,12 @@ docker run --rm \
   -w /workspace \
   manim-studio:local \
   studio list
+```
+
+Generated external projects can target the published trial image:
+
+```bash
+studio project init ./demo --name "Demo Project" --image-tag ghcr.io/alonshoa/manim-studio:0.0.1
 ```
 
 Run the MCP stdio server through the runtime container without allocating a TTY:
