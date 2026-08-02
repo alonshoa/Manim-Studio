@@ -58,6 +58,29 @@ class StudioCliTests(unittest.TestCase):
         self.assertEqual(1, exit_code)
         self.assertIn("Target not found: demo/missing", output.getvalue())
 
+    def test_project_init_parses_and_dispatches(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir) / "generated"
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                exit_code = main(
+                    [
+                        "project",
+                        "init",
+                        str(root),
+                        "--name",
+                        "Demo Project",
+                        "--image-tag",
+                        "manim-studio:test",
+                    ]
+                )
+
+            self.assertEqual(0, exit_code)
+            self.assertTrue((root / "compose.yml").exists())
+            self.assertTrue((root / "AGENTS.md").exists())
+            self.assertIn("Registered starter target: demo_project/intro", output.getvalue())
+            self.assertIn("studio project verify", output.getvalue())
+
     def test_render_uses_fake_runner_and_can_be_inspected(self) -> None:
         with StudioFixture() as fixture:
             runner = FakeRunner(returncode=0, stdout="rendered\n")

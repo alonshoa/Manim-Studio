@@ -61,6 +61,50 @@ Require optional planning metadata:
 studio catalog validate --strict-metadata
 ```
 
+## `studio project init`
+
+Generate an external Manim Studio project without running Docker, building an
+image, validating the runtime, or rendering:
+
+```bash
+studio project init ./demo --name "Demo Project"
+```
+
+Options:
+
+- `--name`
+- `--deck-id`
+- `--scene-id`
+- `--class-name`
+- `--language`
+- `--image-tag`
+- `--force`
+
+The generated project includes a catalog, starter scene, Compose file, MCP
+snippet, `AGENTS.md`, documentation, and Windows helper wrappers.
+
+## `studio project verify`
+
+Verify the Docker runtime for a generated external project:
+
+```bash
+studio project verify ./demo
+```
+
+This checks Docker availability, Docker responsiveness, the configured runtime
+image, `studio doctor --catalog`, `studio list`, and starter target validation.
+It does not build or pull a runtime image automatically.
+
+Run an optional draft render and confirm a host-visible artifact:
+
+```bash
+studio project verify ./demo --render
+```
+
+This command is verification only. Public bootstrap installation, image
+publication, automatic client configuration, and cloud rendering are future
+distribution work.
+
 ## `studio beats`
 
 List named beats discovered in a registered scene:

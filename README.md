@@ -100,6 +100,13 @@ docker run --rm \
   studio list
 ```
 
+Generated external projects default to `manim-studio:local` and can be pointed
+at another locally available image when needed:
+
+```bash
+studio project init ./demo --name "Demo Project" --image-tag manim-studio:local
+```
+
 Run the MCP stdio server through the runtime container without allocating a TTY:
 
 ```bash
