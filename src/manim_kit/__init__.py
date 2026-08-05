@@ -7,6 +7,7 @@ __all__ = [
     "BeatMixin",
     "DEFAULT_THEME",
     "HebrewSlide",
+    "RTLWrite",
     "StudioSlide",
     "StudioTheme",
     "code_panel",
@@ -26,6 +27,11 @@ def __getattr__(name: str):
         from manim_kit.text import hebrew_text, rtl_column
 
         return {"hebrew_text": hebrew_text, "rtl_column": rtl_column}[name]
+
+    if name == "RTLWrite":
+        from manim_kit.animations import RTLWrite
+
+        return RTLWrite
 
     if name in {"code_panel", "explanation_panel"}:
         from manim_kit.panels import code_panel, explanation_panel

@@ -24,6 +24,22 @@ title = hebrew_text("...", scale=DEFAULT_THEME.title_scale)
 self.play(FadeIn(title))
 ```
 
+## RTL Write
+
+Use `RTLWrite` when Hebrew text should be revealed from right to left while
+keeping Manim's `Write` drawing style:
+
+```python
+from manim_kit import DEFAULT_THEME, RTLWrite, hebrew_text
+
+title = hebrew_text("...", scale=DEFAULT_THEME.title_scale)
+self.play(RTLWrite(title))
+```
+
+`RTLWrite` orders the reveal visually, top-to-bottom by row and right-to-left
+within each row. It is intended for compact Hebrew and RTL text, not full
+bidirectional document layout.
+
 ## RTL Columns
 
 Use `rtl_column` for short right-aligned Hebrew text stacks:

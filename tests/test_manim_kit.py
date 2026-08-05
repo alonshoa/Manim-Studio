@@ -26,6 +26,11 @@ class ManimKitTests(unittest.TestCase):
     def test_package_keeps_beat_import_available(self) -> None:
         self.assertTrue(issubclass(BeatMixin, object))
 
+    def test_package_exposes_rtl_write_name(self) -> None:
+        import manim_kit
+
+        self.assertIn("RTLWrite", manim_kit.__all__)
+
     def test_beat_section_names_are_windows_filename_safe(self) -> None:
         section_name = _section_name(
             "transform:part",
@@ -141,6 +146,59 @@ print(json.dumps({
 
         self.assertEqual(2, len(panel))
         self.assertEqual(DEFAULT_THEME.code_font, panel[1].font)
+
+    @unittest.skipUnless(MANIM_AVAILABLE, "manim is not installed")
+    def test_rtl_write_is_public_import(self) -> None:
+        from manim import Write
+        from manim_kit import RTLWrite
+
+        self.assertTrue(issubclass(RTLWrite, Write))
+
+    @unittest.skipUnless(MANIM_AVAILABLE, "manim is not installed")
+    def test_rtl_write_orders_single_row_right_to_left(self) -> None:
+        from manim import Dot, LEFT, ORIGIN, RIGHT
+        from manim_kit.animations import _rtl_visual_order
+
+        left = Dot().move_to(LEFT)
+        middle = Dot().move_to(ORIGIN)
+        right = Dot().move_to(RIGHT)
+
+        ordered = _rtl_visual_order([left, right, middle])
+
+        self.assertEqual([right, middle, left], ordered)
+
+    @unittest.skipUnless(MANIM_AVAILABLE, "manim is not installed")
+    def test_rtl_write_orders_rows_top_to_bottom(self) -> None:
+        from manim import DOWN, Dot, LEFT, RIGHT, UP
+        from manim_kit.animations import _rtl_visual_order
+
+        top_left = Dot().move_to(UP + LEFT)
+        top_right = Dot().move_to(UP + RIGHT)
+        bottom_left = Dot().move_to(DOWN + LEFT)
+        bottom_right = Dot().move_to(DOWN + RIGHT)
+
+        ordered = _rtl_visual_order(
+            [bottom_left, top_left, bottom_right, top_right],
+        )
+
+        self.assertEqual([top_right, top_left, bottom_right, bottom_left], ordered)
+
+    @unittest.skipUnless(MANIM_AVAILABLE, "manim is not installed")
+    def test_rtl_write_restores_original_submobject_order(self) -> None:
+        from manim import Dot, LEFT, RIGHT, VGroup
+        from manim_kit import RTLWrite
+
+        left = Dot().move_to(LEFT)
+        right = Dot().move_to(RIGHT)
+        group = VGroup(left, right)
+        original_order = list(group.submobjects)
+
+        animation = RTLWrite(group)
+        animation.begin()
+        self.assertEqual([right, left], group.submobjects)
+
+        animation.finish()
+        self.assertEqual(original_order, group.submobjects)
 
     @unittest.skipUnless(
         MANIM_AVAILABLE and SLIDES_AVAILABLE,

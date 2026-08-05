@@ -10,6 +10,7 @@ Current stable imports:
 
 - `DEFAULT_THEME`, `StudioTheme`
 - `hebrew_text`, `rtl_column`
+- `RTLWrite`
 - `explanation_panel`, `code_panel`
 - `StudioSlide`, `HebrewSlide`
 - `Beat`, `BeatMixin`
