@@ -290,60 +290,44 @@ def run_render(
     force: bool = False,
     runner=None,
 ) -> int:
-    from manim_studio.builds import render_scene
-    from manim_studio.beats import beat_by_id, beats_to_json, discover_entry_beats
-    from manim_studio.catalog import find_scene_entry, load_catalog_entries, parse_scene_target
-    from manim_studio.profiles import get_profile
+    from manim_studio.rendering import RenderRequest, RenderRequestError, execute_render
 
     root = _repo_root(repo_root)
     try:
-        deck_id, scene_id = parse_scene_target(target)
-        profile = get_profile(profile_name)
-    except ValueError as exc:
-        print(str(exc))
-        return 1
-
-    result = load_catalog_entries(repo_root=root, catalog_path=catalog_path)
-    if not result.ok:
-        _print_catalog_errors(result.errors)
-        return 1
-
-    entry = find_scene_entry(result.entries, deck_id, scene_id)
-    if entry is None:
-        print(f"Target not found: {target}")
-        return 1
-
-    beats = None
-    if beat_id is not None:
-        beat_result = discover_entry_beats(root, entry)
-        if not beat_result.ok:
+        render_result = execute_render(
+            RenderRequest(
+                repo_root=root,
+                target=target,
+                profile=profile_name,
+                catalog_path=catalog_path,
+                builds_root=builds_root,
+                beat_id=beat_id,
+                force=force,
+            ),
+            runner=runner,
+        )
+    except RenderRequestError as exc:
+        if exc.code == "catalog_invalid":
+            _print_catalog_errors(exc.detail or ())
+        elif exc.code == "validation_failed":
             print("Beat validation failed:")
-            for error in beat_result.errors:
+            for error in exc.detail or ():
                 print(f"- {error}")
-            return 1
-        if not beat_result.beats:
-            print(f"No beats found for target: {target}")
-            return 1
-        if beat_by_id(beat_result.beats, beat_id) is None:
-            available = ", ".join(beat.id for beat in beat_result.beats)
-            print(f"Beat not found: {beat_id}")
-            print(f"Available beats: {available}")
-            return 1
-        beats = beat_result.beats
+        elif exc.code == "beat_not_found" and isinstance(exc.detail, dict):
+            if exc.message.startswith("no beats"):
+                print(f"No beats found for target: {target}")
+            else:
+                print(f"Beat not found: {beat_id}")
+            available = exc.detail.get("available_beats", [])
+            if available:
+                print("Available beats: " + ", ".join(beat["id"] for beat in available))
+        elif exc.code == "target_not_found":
+            print(f"Target not found: {target}")
+        else:
+            print(exc.message)
+        return 1
 
-    kwargs = {}
-    if runner is not None:
-        kwargs["runner"] = runner
-    build_result = render_scene(
-        root,
-        entry,
-        profile,
-        builds_root=builds_root,
-        beat_id=beat_id,
-        beats=beats_to_json(beats) if beats is not None else None,
-        force=force,
-        **kwargs,
-    )
+    build_result = render_result.build
     print(f"Build {build_result.status}: {build_result.build_id}")
     print(f"Path: {build_result.build_dir}")
     return build_result.returncode

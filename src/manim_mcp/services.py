@@ -7,11 +7,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-from manim_studio.beats import beat_by_id, beats_to_json, discover_entry_beats
+from manim_studio.beats import beats_to_json, discover_entry_beats
 from manim_studio.builds import ExportDeckError
 from manim_studio.builds import build_deck as run_build_deck
 from manim_studio.builds import export_deck as run_export_deck
-from manim_studio.builds import inspect_build, render_scene as run_render_scene
+from manim_studio.builds import inspect_build
 from manim_studio.catalog import (
     CatalogEntry,
     find_scene_entry,
@@ -21,6 +21,7 @@ from manim_studio.catalog import (
     parse_scene_target,
 )
 from manim_studio.profiles import get_profile, profile_names
+from manim_studio.rendering import RenderRequest, RenderRequestError, execute_render
 from manim_studio import staged_edits
 from manim_studio.validation import validate_scene_preflight
 
@@ -136,23 +137,7 @@ def render_scene(
     context: StudioContext | None = None,
 ) -> dict[str, Any]:
     ctx = context or default_context()
-    entry_result = _select_scene(ctx, target)
-    if not entry_result["ok"]:
-        return entry_result
-
-    profile_result = _profile(profile)
-    if not profile_result["ok"]:
-        return profile_result
-
-    build = run_render_scene(
-        ctx.repo_root,
-        entry_result["entry"],
-        profile_result["profile"],
-        builds_root=ctx.builds_root,
-        runner=ctx.runner,
-        force=force,
-    )
-    return _build_response(ctx, build.build_id)
+    return _execute_render_request(ctx, target, profile, force=force)
 
 
 def render_beat(
@@ -163,42 +148,60 @@ def render_beat(
     context: StudioContext | None = None,
 ) -> dict[str, Any]:
     ctx = context or default_context()
-    entry_result = _select_scene(ctx, target)
-    if not entry_result["ok"]:
-        return entry_result
     if not _safe_identifier(beat_id):
         return failure("beat_not_found", f"invalid beat id: {beat_id!r}")
+    return _execute_render_request(ctx, target, profile, beat_id=beat_id, force=force)
 
-    beat_result = discover_entry_beats(ctx.repo_root, entry_result["entry"])
-    if not beat_result.ok:
-        return failure(
-            "validation_failed",
-            f"beat discovery failed for {target}",
-            status="failed",
-            detail=beat_result.errors,
+
+def _execute_render_request(
+    ctx: StudioContext,
+    target: str,
+    profile: str,
+    *,
+    beat_id: str | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    if not _safe_target(target):
+        return failure("invalid_target", "scene target must use '<deck_id>/<scene_id>' syntax")
+    try:
+        result = execute_render(
+            RenderRequest(
+                repo_root=ctx.repo_root,
+                target=target,
+                profile=profile,
+                catalog_path=ctx.catalog_path,
+                builds_root=ctx.builds_root,
+                beat_id=beat_id,
+                force=force,
+            ),
+            runner=ctx.runner,
         )
-    if beat_by_id(beat_result.beats, beat_id) is None:
-        return failure(
-            "beat_not_found",
-            f"beat not found: {beat_id}",
-            data={"available_beats": beats_to_json(beat_result.beats)},
-        )
-
-    profile_result = _profile(profile)
-    if not profile_result["ok"]:
-        return profile_result
-
-    build = run_render_scene(
-        ctx.repo_root,
-        entry_result["entry"],
-        profile_result["profile"],
-        builds_root=ctx.builds_root,
-        runner=ctx.runner,
-        beat_id=beat_id,
-        beats=beats_to_json(beat_result.beats),
-        force=force,
-    )
-    return _build_response(ctx, build.build_id)
+    except RenderRequestError as exc:
+        if exc.code == "invalid_profile":
+            return failure(
+                "invalid_target",
+                exc.message,
+                detail={"profiles": profile_names()},
+            )
+        if exc.code == "target_not_found":
+            return failure("target_not_found", f"scene not found: {target}")
+        if exc.code == "catalog_invalid":
+            return failure(
+                "catalog_invalid",
+                "catalog could not be loaded",
+                status="failed",
+                detail=exc.detail,
+            )
+        if exc.code == "validation_failed":
+            return failure(
+                exc.code,
+                exc.message,
+                status="failed",
+                detail=exc.detail,
+            )
+        data = exc.detail if exc.code == "beat_not_found" else None
+        return failure(exc.code, exc.message, data=data, detail=exc.detail)
+    return _build_response(ctx, result.build.build_id)
 
 
 def build_deck(
