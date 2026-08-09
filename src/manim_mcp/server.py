@@ -143,6 +143,11 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         return services.get_movie_session(session_id, ctx)
 
     @mcp.tool()
+    def get_authoring_session_status(session_id: str) -> dict:
+        """Read compact authoring-session and live-preview state."""
+        return services.get_authoring_session_status(session_id, ctx)
+
+    @mcp.tool()
     def propose_movie_step(
         session_id: str,
         edits: list[dict],
@@ -150,6 +155,11 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
     ) -> dict:
         """Create a staged addon proposal for a movie session's registered scene."""
         return services.propose_movie_step(session_id, edits, rationale, ctx)
+
+    @mcp.tool()
+    def preview_movie_step(session_id: str, proposal_id: str) -> dict:
+        """Preview a staged movie proposal without changing canonical source."""
+        return services.preview_movie_step(session_id, proposal_id, ctx)
 
     @mcp.tool()
     def accept_movie_step(
@@ -160,6 +170,26 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
     ) -> dict:
         """Apply an approved staged proposal and append it to the session steps ledger."""
         return services.accept_movie_step(session_id, proposal_id, note, confirm, ctx)
+
+    @mcp.tool()
+    def reject_movie_step(session_id: str, proposal_id: str | None = None) -> dict:
+        """Reject the active movie proposal and return live preview to accepted source."""
+        return services.reject_movie_step(session_id, proposal_id, ctx)
+
+    @mcp.tool()
+    def start_authoring_live(session_id: str) -> dict:
+        """Start local live preview for the authoring session."""
+        return services.start_authoring_live(session_id, ctx)
+
+    @mcp.tool()
+    def restart_authoring_live(session_id: str) -> dict:
+        """Restart local live preview for the authoring session."""
+        return services.restart_authoring_live(session_id, ctx)
+
+    @mcp.tool()
+    def stop_authoring_live(session_id: str) -> dict:
+        """Stop local live preview for the authoring session."""
+        return services.stop_authoring_live(session_id, ctx)
 
     @mcp.tool()
     def export_deck(

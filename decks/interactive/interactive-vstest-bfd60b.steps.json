@@ -1,0 +1,18 @@
+{
+  "accepted_steps": [],
+  "class_name": "InteractiveVsTestScene",
+  "created_at": "2026-08-09T21:24:16.518967+00:00",
+  "deck_id": "interactive",
+  "language": "en",
+  "live": {
+    "beat_id": "empty",
+    "command": "studio live interactive/interactive-vstest-bfd60b --beat empty --diagnose"
+  },
+  "scene_id": "interactive-vstest-bfd60b",
+  "session_id": "interactive-interactive-vstest-bfd60b-c55e1ef9",
+  "source_path": "decks/interactive/interactive-vstest-bfd60b.py",
+  "steps_path": "decks/interactive/interactive-vstest-bfd60b.steps.json",
+  "target": "interactive/interactive-vstest-bfd60b",
+  "title": "Interactive vsTest",
+  "updated_at": "2026-08-09T21:24:16.518967+00:00"
+}

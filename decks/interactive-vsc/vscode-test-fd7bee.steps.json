@@ -1,0 +1,18 @@
+{
+  "accepted_steps": [],
+  "class_name": "VSCodeTestScene",
+  "created_at": "2026-08-09T20:56:05.817009+00:00",
+  "deck_id": "interactive-vsc",
+  "language": "en",
+  "live": {
+    "beat_id": "empty",
+    "command": "studio live interactive-vsc/vscode-test-fd7bee --beat empty --diagnose"
+  },
+  "scene_id": "vscode-test-fd7bee",
+  "session_id": "interactive-vsc-vscode-test-fd7bee-7ec3fd0f",
+  "source_path": "decks/interactive-vsc/vscode-test-fd7bee.py",
+  "steps_path": "decks/interactive-vsc/vscode-test-fd7bee.steps.json",
+  "target": "interactive-vsc/vscode-test-fd7bee",
+  "title": "VSCode Test",
+  "updated_at": "2026-08-09T20:56:05.817009+00:00"
+}

@@ -4,6 +4,7 @@ import contextlib
 import io
 import os
 import subprocess
+import sys
 import tempfile
 import textwrap
 import unittest
@@ -34,6 +35,8 @@ class LivePreviewTests(unittest.TestCase):
         self.assertEqual("result", plan.beat_id)
         self.assertEqual(
             [
+                sys.executable,
+                "-m",
                 "manim",
                 "--renderer=opengl",
                 "--force_window",

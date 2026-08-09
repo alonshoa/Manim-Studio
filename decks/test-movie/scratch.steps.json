@@ -1,0 +1,38 @@
+{
+  "accepted_steps": [
+    {
+      "accepted_at": "2026-08-09T13:42:07.531251+00:00",
+      "applied_checksum": "b2e360fb4f90977604b9519756e8f5e859cd63657b5fe6a0718991986436ac9a",
+      "base_checksum": "5c471ba2b0862a09e06fb27c8a3561bdc0f7edd0f3b600530468ada62d33661a",
+      "diff": "--- a/decks/test-movie/scratch.py\n+++ b/decks/test-movie/scratch.py\n@@ -6,4 +6,13 @@\n class TestMovieScene(BeatMixin, Scene):\n     def construct(self):\n         self.beat(\"empty\", label=\"Empty slate\")\n+        axes = Axes(\n+            x_range=[-6, 7, 1],\n+            y_range=[-2, 2.5, 1],\n+            x_length=10,\n+            y_length=4.5,\n+            tips=True,\n+        )\n+        self.play(Create(axes))\n+        self.wait(0.4)\n         self.wait(0.1)\n",
+      "note": "2d axes added",
+      "proposal_id": "20260809-134146-patch-test-movie-scratch-90947965",
+      "rationale": "add 2d axes without LaTeX labels",
+      "step": 1
+    },
+    {
+      "accepted_at": "2026-08-09T13:43:17.957664+00:00",
+      "applied_checksum": "c6686dd7c64a2ac0a75b6189fff7d833a9c9455fd64b681bcdc5aa7cc7e58622",
+      "base_checksum": "b2e360fb4f90977604b9519756e8f5e859cd63657b5fe6a0718991986436ac9a",
+      "diff": "--- a/decks/test-movie/scratch.py\n+++ b/decks/test-movie/scratch.py\n@@ -1,4 +1,6 @@\n from manim import *\n+\n+import math\n \n from manim_kit.beats import BeatMixin\n \n@@ -15,4 +17,12 @@\n         )\n         self.play(Create(axes))\n         self.wait(0.4)\n+        self.beat(\"sine\", label=\"Plot sine function\")\n+        sine_curve = axes.plot(\n+            lambda x: math.sin(x),\n+            x_range=[-6, 6],\n+            color=YELLOW,\n+        )\n+        self.play(Create(sine_curve))\n+        self.wait(0.6)\n         self.wait(0.1)\n",
+      "note": "sine function added",
+      "proposal_id": "20260809-134231-patch-test-movie-scratch-9c4a41cd",
+      "rationale": "add sine function on the axes",
+      "step": 2
+    }
+  ],
+  "class_name": "TestMovieScene",
+  "created_at": "2026-08-09T13:27:47.245494+00:00",
+  "deck_id": "test-movie",
+  "live": {
+    "beat_id": "empty",
+    "command": "studio live test-movie/scratch --beat empty --diagnose"
+  },
+  "scene_id": "scratch",
+  "session_id": "test-movie-scratch-982a00ed",
+  "source_path": "decks/test-movie/scratch.py",
+  "steps_path": "decks/test-movie/scratch.steps.json",
+  "target": "test-movie/scratch",
+  "title": "Test Movie",
+  "updated_at": "2026-08-09T13:43:17.957664+00:00"
+}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import platform
 import shutil
 import subprocess
@@ -787,6 +788,205 @@ def run_session_accept(
     return 0
 
 
+def run_authoring_start(
+    title: str,
+    deck_id: str,
+    scene_id: str | None = None,
+    class_name: str | None = None,
+    language: str | None = None,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    json_output: bool = False,
+) -> int:
+    from manim_studio.authoring_sessions import AuthoringSessionError
+    from manim_studio.movie_sessions import MovieSessionError
+
+    try:
+        data = _authoring_controller(repo_root, catalog_path).start_session(
+            title=title,
+            deck_id=deck_id,
+            scene_id=scene_id,
+            class_name=class_name,
+            language=language,
+        )
+    except (AuthoringSessionError, MovieSessionError) as exc:
+        return _print_authoring_error(exc, json_output)
+    _print_authoring_response(data, json_output)
+    return 0
+
+
+def run_authoring_status(
+    session_id: str,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    json_output: bool = False,
+) -> int:
+    from manim_studio.authoring_sessions import AuthoringSessionError
+    from manim_studio.movie_sessions import MovieSessionError
+
+    try:
+        data = _authoring_controller(repo_root, catalog_path).get_status(session_id)
+    except (AuthoringSessionError, MovieSessionError) as exc:
+        return _print_authoring_error(exc, json_output)
+    _print_authoring_response(data, json_output)
+    return 0
+
+
+def run_authoring_preview(
+    session_id: str,
+    proposal_id: str,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    builds_root: Path | str = "builds",
+    json_output: bool = False,
+) -> int:
+    from manim_studio.authoring_sessions import AuthoringSessionError
+    from manim_studio.movie_sessions import MovieSessionError
+    from manim_studio.staged_edits import StagedEditError
+
+    try:
+        data = _authoring_controller(repo_root, catalog_path, builds_root).preview_proposal(
+            session_id,
+            proposal_id,
+        )
+    except (AuthoringSessionError, MovieSessionError, StagedEditError, SyntaxError) as exc:
+        return _print_authoring_error(exc, json_output)
+    _print_authoring_response(data, json_output)
+    return 0
+
+
+def run_authoring_accept(
+    session_id: str,
+    proposal_id: str,
+    note: str = "",
+    confirm: str = "accept",
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    builds_root: Path | str = "builds",
+    json_output: bool = False,
+) -> int:
+    from manim_studio.authoring_sessions import AuthoringSessionError
+    from manim_studio.movie_sessions import MovieSessionError
+    from manim_studio.staged_edits import StagedEditError
+
+    try:
+        data = _authoring_controller(repo_root, catalog_path, builds_root).accept_proposal(
+            session_id,
+            proposal_id,
+            note=note,
+            confirm=confirm,
+        )
+    except (AuthoringSessionError, MovieSessionError, StagedEditError, SyntaxError) as exc:
+        return _print_authoring_error(exc, json_output)
+    _print_authoring_response(data, json_output)
+    return 0
+
+
+def run_authoring_reject(
+    session_id: str,
+    proposal_id: str | None = None,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    json_output: bool = False,
+) -> int:
+    from manim_studio.authoring_sessions import AuthoringSessionError
+    from manim_studio.movie_sessions import MovieSessionError
+
+    try:
+        data = _authoring_controller(repo_root, catalog_path).reject_proposal(
+            session_id,
+            proposal_id,
+        )
+    except (AuthoringSessionError, MovieSessionError) as exc:
+        return _print_authoring_error(exc, json_output)
+    _print_authoring_response(data, json_output)
+    return 0
+
+
+def run_authoring_live_action(
+    action: str,
+    session_id: str,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    json_output: bool = False,
+) -> int:
+    from manim_studio.authoring_sessions import AuthoringSessionError
+    from manim_studio.movie_sessions import MovieSessionError
+
+    controller = _authoring_controller(repo_root, catalog_path)
+    try:
+        if action == "live-start":
+            data = controller.start_live(session_id)
+        elif action == "live-restart":
+            data = controller.reload_live(session_id)
+        elif action == "live-stop":
+            data = controller.stop_live(session_id)
+        else:
+            raise AuthoringSessionError("unsupported", f"unknown live action: {action}")
+    except (AuthoringSessionError, MovieSessionError) as exc:
+        return _print_authoring_error(exc, json_output)
+    _print_authoring_response(data, json_output)
+    return 0
+
+
+def run_authoring_rpc(
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    builds_root: Path | str = "builds",
+) -> int:
+    return _authoring_controller(repo_root, catalog_path, builds_root).rpc_loop()
+
+
+def _authoring_controller(
+    repo_root: Path | str | None,
+    catalog_path: Path | str | None,
+    builds_root: Path | str = "builds",
+):
+    from manim_studio.authoring_sessions import AuthoringSessionController
+
+    return AuthoringSessionController(
+        _repo_root(repo_root),
+        catalog_path=catalog_path or DEFAULT_CATALOG_PATH,
+        builds_root=builds_root,
+    )
+
+
+def _print_authoring_response(data: dict, json_output: bool) -> None:
+    if json_output:
+        print(json.dumps(data, indent=2, sort_keys=True))
+        return
+    print(f"Authoring session: {data['session_id']}")
+    print(f"Status: {data['status']}")
+    print(f"Target: {data['target']}")
+    print(f"Revision: {data['revision']}")
+    print(f"Beat: {data['beat']}")
+    print(f"Live: {data['live_status']}")
+    if data.get("proposal_id"):
+        print(f"Proposal: {data['proposal_id']}")
+    print(f"Source: {data['source_path']}")
+    if data.get("error"):
+        print(f"Error: {data['error']}")
+
+
+def _print_authoring_error(exc: Exception, json_output: bool) -> int:
+    code = getattr(exc, "code", "internal_error")
+    message = getattr(exc, "message", str(exc))
+    detail = getattr(exc, "detail", None)
+    if json_output:
+        print(
+            json.dumps(
+                {"ok": False, "error": {"code": code, "message": message, "detail": detail}},
+                indent=2,
+                sort_keys=True,
+            )
+        )
+    else:
+        print(f"{code}: {message}")
+        if detail is not None:
+            print(detail)
+    return 1
+
+
 def _repo_root(repo_root: Path | str | None) -> Path:
     return (Path.cwd() if repo_root is None else Path(repo_root)).resolve()
 
@@ -1141,6 +1341,89 @@ def build_parser() -> argparse.ArgumentParser:
         help="Build output root. Defaults to builds.",
     )
 
+    authoring_parser = subparsers.add_parser(
+        "authoring",
+        help="Run controller-backed interactive authoring sessions.",
+    )
+    authoring_subparsers = authoring_parser.add_subparsers(
+        dest="authoring_command",
+        required=True,
+    )
+    authoring_start_parser = authoring_subparsers.add_parser(
+        "start",
+        help="Create a registered authoring session.",
+    )
+    authoring_start_parser.add_argument("--title", default="Interactive Movie")
+    authoring_start_parser.add_argument("--deck-id", default="interactive")
+    authoring_start_parser.add_argument("--scene-id", default=None)
+    authoring_start_parser.add_argument("--class-name", default=None)
+    authoring_start_parser.add_argument("--language", default=None)
+    authoring_start_parser.add_argument("--repo-root", default=None)
+    authoring_start_parser.add_argument("--catalog", default=DEFAULT_CATALOG_PATH)
+    authoring_start_parser.add_argument("--json", action="store_true")
+
+    authoring_status_parser = authoring_subparsers.add_parser(
+        "status",
+        help="Show compact authoring-session status.",
+    )
+    authoring_status_parser.add_argument("session_id")
+    authoring_status_parser.add_argument("--repo-root", default=None)
+    authoring_status_parser.add_argument("--catalog", default=DEFAULT_CATALOG_PATH)
+    authoring_status_parser.add_argument("--json", action="store_true")
+
+    authoring_preview_parser = authoring_subparsers.add_parser(
+        "preview",
+        help="Preview a staged proposal without changing canonical source.",
+    )
+    authoring_preview_parser.add_argument("session_id")
+    authoring_preview_parser.add_argument("proposal_id")
+    authoring_preview_parser.add_argument("--repo-root", default=None)
+    authoring_preview_parser.add_argument("--catalog", default=DEFAULT_CATALOG_PATH)
+    authoring_preview_parser.add_argument("--builds-root", default="builds")
+    authoring_preview_parser.add_argument("--json", action="store_true")
+
+    authoring_accept_parser = authoring_subparsers.add_parser(
+        "accept",
+        help="Validate, render, and accept a staged authoring proposal.",
+    )
+    authoring_accept_parser.add_argument("session_id")
+    authoring_accept_parser.add_argument("proposal_id")
+    authoring_accept_parser.add_argument("--note", default="")
+    authoring_accept_parser.add_argument("--confirm", default="accept")
+    authoring_accept_parser.add_argument("--repo-root", default=None)
+    authoring_accept_parser.add_argument("--catalog", default=DEFAULT_CATALOG_PATH)
+    authoring_accept_parser.add_argument("--builds-root", default="builds")
+    authoring_accept_parser.add_argument("--json", action="store_true")
+
+    authoring_reject_parser = authoring_subparsers.add_parser(
+        "reject",
+        help="Reject the active proposal and return to accepted source.",
+    )
+    authoring_reject_parser.add_argument("session_id")
+    authoring_reject_parser.add_argument("proposal_id", nargs="?")
+    authoring_reject_parser.add_argument("--repo-root", default=None)
+    authoring_reject_parser.add_argument("--catalog", default=DEFAULT_CATALOG_PATH)
+    authoring_reject_parser.add_argument("--json", action="store_true")
+
+    for command_name, help_text in (
+        ("live-start", "Start local live preview."),
+        ("live-restart", "Restart local live preview."),
+        ("live-stop", "Stop local live preview."),
+    ):
+        live_action_parser = authoring_subparsers.add_parser(command_name, help=help_text)
+        live_action_parser.add_argument("session_id")
+        live_action_parser.add_argument("--repo-root", default=None)
+        live_action_parser.add_argument("--catalog", default=DEFAULT_CATALOG_PATH)
+        live_action_parser.add_argument("--json", action="store_true")
+
+    authoring_rpc_parser = authoring_subparsers.add_parser(
+        "rpc",
+        help="Run a local JSON-lines authoring protocol on stdio.",
+    )
+    authoring_rpc_parser.add_argument("--repo-root", default=None)
+    authoring_rpc_parser.add_argument("--catalog", default=DEFAULT_CATALOG_PATH)
+    authoring_rpc_parser.add_argument("--builds-root", default="builds")
+
     catalog_parser = subparsers.add_parser(
         "catalog",
         help="Inspect and validate scene catalog metadata.",
@@ -1283,6 +1566,77 @@ def main(argv: Sequence[str] | None = None) -> int:
             note=args.note,
             confirm=args.confirm,
             repo_root=args.repo_root,
+            builds_root=args.builds_root,
+        )
+
+    if args.command == "authoring" and args.authoring_command == "start":
+        return run_authoring_start(
+            args.title,
+            args.deck_id,
+            scene_id=args.scene_id,
+            class_name=args.class_name,
+            language=args.language,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            json_output=args.json,
+        )
+
+    if args.command == "authoring" and args.authoring_command == "status":
+        return run_authoring_status(
+            args.session_id,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            json_output=args.json,
+        )
+
+    if args.command == "authoring" and args.authoring_command == "preview":
+        return run_authoring_preview(
+            args.session_id,
+            args.proposal_id,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            builds_root=args.builds_root,
+            json_output=args.json,
+        )
+
+    if args.command == "authoring" and args.authoring_command == "accept":
+        return run_authoring_accept(
+            args.session_id,
+            args.proposal_id,
+            note=args.note,
+            confirm=args.confirm,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            builds_root=args.builds_root,
+            json_output=args.json,
+        )
+
+    if args.command == "authoring" and args.authoring_command == "reject":
+        return run_authoring_reject(
+            args.session_id,
+            args.proposal_id,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            json_output=args.json,
+        )
+
+    if args.command == "authoring" and args.authoring_command in {
+        "live-start",
+        "live-restart",
+        "live-stop",
+    }:
+        return run_authoring_live_action(
+            args.authoring_command,
+            args.session_id,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            json_output=args.json,
+        )
+
+    if args.command == "authoring" and args.authoring_command == "rpc":
+        return run_authoring_rpc(
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
             builds_root=args.builds_root,
         )
 

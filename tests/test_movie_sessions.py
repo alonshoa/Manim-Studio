@@ -77,6 +77,7 @@ class MovieSessionTests(unittest.TestCase):
                 note="first accepted visual",
                 context=context,
             )
+            inspected = services.get_movie_session(session_id, context)
             source_text = (fixture.root / "decks" / "story" / "scratch.py").read_text(
                 encoding="utf-8"
             )
@@ -84,8 +85,11 @@ class MovieSessionTests(unittest.TestCase):
         self.assertTrue(validation["ok"], validation)
         self.assertTrue(render["ok"], render)
         self.assertTrue(accepted["ok"], accepted)
-        self.assertEqual(1, len(accepted["data"]["accepted_steps"]))
-        self.assertEqual("first accepted visual", accepted["data"]["accepted_steps"][0]["note"])
+        self.assertEqual("accepted", accepted["data"]["status"])
+        self.assertEqual(1, accepted["data"]["revision"])
+        self.assertEqual("step_001", accepted["data"]["beat"])
+        self.assertEqual(1, len(inspected["data"]["accepted_steps"]))
+        self.assertEqual("first accepted visual", inspected["data"]["accepted_steps"][0]["note"])
         self.assertIn("dot = Dot()", source_text)
 
     def test_accept_requires_explicit_accept_confirmation(self) -> None:

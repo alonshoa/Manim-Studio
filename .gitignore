@@ -30,6 +30,8 @@ site/
 *.log
 *.tmp
 *.bak
+vscode-extension/node_modules/
+vscode-extension/out/
 
 # OS/editor noise
 .DS_Store

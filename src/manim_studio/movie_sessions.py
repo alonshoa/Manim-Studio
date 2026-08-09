@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import tempfile
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,6 +37,7 @@ class MovieSession:
     class_name: str
     source_path: str
     steps_path: str
+    language: str
     created_at: str
     updated_at: str
     accepted_steps: tuple[dict[str, Any], ...]
@@ -48,6 +50,7 @@ def start_movie_session(
     deck_id: str = DEFAULT_DECK_ID,
     scene_id: str | None = None,
     class_name: str | None = None,
+    language: str | None = None,
     scene_root: Path | str = DEFAULT_SCENE_ROOT,
 ) -> dict[str, Any]:
     root = Path(repo_root).resolve()
@@ -55,6 +58,7 @@ def start_movie_session(
     clean_deck_id = _safe_identifier(deck_id.strip() or DEFAULT_DECK_ID, "deck_id")
     clean_scene_id = _safe_identifier(scene_id or _default_scene_id(clean_title), "scene_id")
     clean_class_name = _safe_class_name(class_name or _default_class_name(clean_title))
+    clean_language = (language or _guess_language(clean_title)).strip() or "en"
 
     source_path = _scene_source_path(clean_deck_id, clean_scene_id, scene_root)
     steps_path = source_path.with_suffix(".steps.json")
@@ -84,6 +88,7 @@ def start_movie_session(
         class_name=clean_class_name,
         source_path=source_path.as_posix(),
         steps_path=steps_path.as_posix(),
+        language=clean_language,
         created_at=created_at,
         updated_at=created_at,
         accepted_steps=(),
@@ -164,6 +169,7 @@ def accept_movie_step(
     )
     accepted_step = {
         "step": len(session.accepted_steps) + 1,
+        "beat_id": f"step_{len(session.accepted_steps) + 1:03d}",
         "proposal_id": proposal_id,
         "accepted_at": _utc_now(),
         "note": note.strip(),
@@ -186,9 +192,10 @@ def accept_movie_step(
 def _session_response(session: MovieSession) -> dict[str, Any]:
     data = asdict(session)
     data["accepted_steps"] = list(session.accepted_steps)
+    beat_id = _latest_accepted_beat(session)
     data["live"] = {
-        "beat_id": DEFAULT_BEAT_ID,
-        "command": f"studio live {session.target} --beat {DEFAULT_BEAT_ID} --diagnose",
+        "beat_id": beat_id,
+        "command": f"studio live {session.target} --beat {beat_id} --diagnose",
     }
     return data
 
@@ -226,7 +233,7 @@ def _append_catalog_entry(
             "class_name": session.class_name,
             "base_scene_type": "Scene",
             "renderer": "manim",
-            "language": "en",
+            "language": session.language,
             "description": f"Interactive movie session: {session.title}",
             "parameter_notes": "Built incrementally from accepted interactive steps.",
             "render_command": f"manim -ql {session.source_path} {session.class_name}",
@@ -235,7 +242,7 @@ def _append_catalog_entry(
     )
     if "version" not in data:
         data["version"] = 1
-    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    _atomic_write_text(path, yaml.safe_dump(data, sort_keys=False))
 
 
 def _ensure_target_available(repo_root: Path, catalog_path: Path | str, target: str) -> None:
@@ -252,10 +259,7 @@ def _ensure_target_available(repo_root: Path, catalog_path: Path | str, target: 
 def _write_session(repo_root: Path, session: MovieSession) -> None:
     path = _repo_path(repo_root, Path(session.steps_path), "steps_path")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(_session_response(session), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    _atomic_write_text(path, json.dumps(_session_response(session), indent=2, sort_keys=True) + "\n")
 
 
 def _load_session(
@@ -292,6 +296,7 @@ def _session_from_data(data: dict[str, Any]) -> MovieSession:
             class_name=str(data["class_name"]),
             source_path=str(data["source_path"]),
             steps_path=str(data["steps_path"]),
+            language=str(data.get("language", "en")),
             created_at=str(data["created_at"]),
             updated_at=str(data["updated_at"]),
             accepted_steps=tuple(step for step in steps if isinstance(step, dict)),
@@ -308,7 +313,7 @@ def _session_entry(session: MovieSession) -> CatalogEntry:
         class_name=session.class_name,
         base_scene_type="Scene",
         renderer="manim",
-        language="en",
+        language=session.language,
         description=f"Interactive movie session: {session.title}",
         parameter_notes="Built incrementally from accepted interactive steps.",
         render_command=f"manim -ql {session.source_path} {session.class_name}",
@@ -383,8 +388,35 @@ def _new_session_id(deck_id: str, scene_id: str) -> str:
 
 def _slugify(value: str) -> str:
     lowered = value.strip().lower()
-    chars = [char if char.isalnum() else "-" for char in lowered]
+    chars = [char if char.isascii() and char.isalnum() else "-" for char in lowered]
     return "-".join(part for part in "".join(chars).split("-") if part)
+
+
+def _latest_accepted_beat(session: MovieSession) -> str:
+    if not session.accepted_steps:
+        return DEFAULT_BEAT_ID
+    last = session.accepted_steps[-1].get("beat_id")
+    if isinstance(last, str) and last:
+        return last
+    return f"step_{len(session.accepted_steps):03d}"
+
+
+def _guess_language(title: str) -> str:
+    return "he" if any("\u0590" <= char <= "\u05ff" for char in title) else "en"
+
+
+def _atomic_write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=path.parent,
+        delete=False,
+        newline="",
+    ) as handle:
+        handle.write(text)
+        temp_path = Path(handle.name)
+    temp_path.replace(path)
 
 
 def _utc_now() -> str:

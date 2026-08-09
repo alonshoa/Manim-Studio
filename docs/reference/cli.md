@@ -182,6 +182,32 @@ Session start writes a normal catalog entry and a source file under `decks/`.
 Accepted proposals are recorded in a `.steps.json` file beside the source. See
 [Movie Sessions](../concepts/movie-sessions.md).
 
+## `studio authoring`
+
+Run the controller-backed interactive authoring workflow used by CLI, MCP, and
+the VS Code extension.
+
+```bash
+studio authoring start --title "Vector Movie" --deck-id vector_movie
+studio authoring status <session-id>
+studio authoring live-start <session-id>
+studio authoring preview <session-id> <proposal-id>
+studio authoring accept <session-id> <proposal-id> --confirm accept
+studio authoring reject <session-id> [proposal-id]
+studio authoring live-restart <session-id>
+studio authoring live-stop <session-id>
+```
+
+Add `--json` to command-style operations for compact machine-readable output.
+The VS Code extension uses:
+
+```bash
+studio authoring rpc
+```
+
+This mode communicates over JSON lines on stdio and does not expose a network
+port.
+
 ## `studio render`
 
 Render one registered scene into an isolated build directory:

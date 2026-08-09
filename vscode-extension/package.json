@@ -1,0 +1,89 @@
+{
+  "name": "manim-studio-authoring",
+  "displayName": "Manim Studio Authoring",
+  "description": "Thin VS Code client for local Manim Studio interactive authoring sessions.",
+  "version": "0.1.0",
+  "publisher": "manim-studio",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:manimStudio.startAuthoringSession",
+    "onCommand:manimStudio.startLivePreview",
+    "onCommand:manimStudio.previewActiveProposal",
+    "onCommand:manimStudio.acceptActiveProposal",
+    "onCommand:manimStudio.rejectActiveProposal",
+    "onCommand:manimStudio.restartLivePreview",
+    "onCommand:manimStudio.stopLivePreview",
+    "onCommand:manimStudio.showSessionStatus"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Manim Studio",
+      "properties": {
+        "manimStudio.studioExecutable": {
+          "type": "string",
+          "default": "studio",
+          "description": "Studio executable or script used by the authoring extension."
+        },
+        "manimStudio.pythonExecutable": {
+          "type": "string",
+          "default": "",
+          "description": "Optional Python executable for future local environment selection."
+        },
+        "manimStudio.lastSessionId": {
+          "type": "string",
+          "default": "",
+          "description": "Last authoring session ID used by the extension."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "manimStudio.startAuthoringSession",
+        "title": "Manim Studio: Start Authoring Session"
+      },
+      {
+        "command": "manimStudio.startLivePreview",
+        "title": "Manim Studio: Start Live Preview"
+      },
+      {
+        "command": "manimStudio.previewActiveProposal",
+        "title": "Manim Studio: Preview Active Proposal"
+      },
+      {
+        "command": "manimStudio.acceptActiveProposal",
+        "title": "Manim Studio: Accept Active Proposal"
+      },
+      {
+        "command": "manimStudio.rejectActiveProposal",
+        "title": "Manim Studio: Reject Active Proposal"
+      },
+      {
+        "command": "manimStudio.restartLivePreview",
+        "title": "Manim Studio: Restart Live Preview"
+      },
+      {
+        "command": "manimStudio.stopLivePreview",
+        "title": "Manim Studio: Stop Live Preview"
+      },
+      {
+        "command": "manimStudio.showSessionStatus",
+        "title": "Manim Studio: Show Session Status"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "node test/manifest.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.5.0"
+  }
+}

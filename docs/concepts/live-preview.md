@@ -31,7 +31,7 @@ The live command validates the catalog target and beat before launching Manim.
 For the first vertical slice it uses host Python and starts Manim directly:
 
 ```text
-manim --renderer=opengl --force_window -ql --media_dir <live-media-dir> <source.py> <SceneClass>
+python -m manim --renderer=opengl --force_window -ql --media_dir <live-media-dir> <source.py> <SceneClass>
 ```
 
 The command keeps stdin, stdout, and stderr attached so the embedded IPython

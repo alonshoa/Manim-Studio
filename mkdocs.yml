@@ -39,12 +39,14 @@ nav:
       - Render Profiles: concepts/render-profiles.md
       - Live Preview: concepts/live-preview.md
       - Movie Sessions: concepts/movie-sessions.md
+      - Interactive Authoring: concepts/interactive-authoring.md
   - Workflows:
       - Render A Scene: workflows/render-a-scene.md
       - Render A Beat: workflows/render-a-beat.md
       - Build A Deck: workflows/build-a-deck.md
       - Export PPTX: workflows/export-pptx.md
       - Debug Render Failures: workflows/debug-render-failures.md
+      - Interactive Authoring In VS Code: workflows/interactive-authoring-vscode.md
   - Examples:
       - Overview: examples/index.md
       - Basic Scenes: examples/basic-scenes.md

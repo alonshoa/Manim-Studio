@@ -68,22 +68,28 @@ def plan_live_preview(
     live_root: Path | str = DEFAULT_LIVE_ROOT,
     session_id: str | None = None,
     base_env: dict[str, str] | None = None,
+    source_repo_root: Path | str | None = None,
+    source_entry: CatalogEntry | None = None,
 ) -> LivePlan:
     root = _repo_root(repo_root)
+    source_root = _repo_root(source_repo_root) if source_repo_root is not None else root
     try:
         deck_id, scene_id = parse_scene_target(target)
     except ValueError as exc:
         raise LiveError("invalid_target", str(exc)) from exc
 
-    catalog_result = load_catalog_entries(repo_root=root, catalog_path=catalog_path)
-    if not catalog_result.ok:
-        raise LiveError("catalog_invalid", "catalog could not be loaded", catalog_result.errors)
+    if source_entry is None:
+        catalog_result = load_catalog_entries(repo_root=source_root, catalog_path=catalog_path)
+        if not catalog_result.ok:
+            raise LiveError("catalog_invalid", "catalog could not be loaded", catalog_result.errors)
 
-    entry = find_scene_entry(catalog_result.entries, deck_id, scene_id)
-    if entry is None:
-        raise LiveError("target_not_found", f"Target not found: {target}")
+        entry = find_scene_entry(catalog_result.entries, deck_id, scene_id)
+        if entry is None:
+            raise LiveError("target_not_found", f"Target not found: {target}")
+    else:
+        entry = source_entry
 
-    beat_result = discover_entry_beats(root, entry)
+    beat_result = discover_entry_beats(source_root, entry)
     if not beat_result.ok:
         raise LiveError("beat_not_found", "Beat validation failed", beat_result.errors)
     if not beat_result.beats:
@@ -104,6 +110,8 @@ def plan_live_preview(
     _ensure_inside_repo(root, media_dir, "live media directory")
 
     command = (
+        sys.executable,
+        "-m",
         "manim",
         "--renderer=opengl",
         "--force_window",
@@ -113,13 +121,13 @@ def plan_live_preview(
         entry.source_path,
         entry.class_name,
     )
-    env = _live_environment(root, beat_id, base_env)
+    env = _live_environment(source_root, beat_id, base_env)
     return LivePlan(
         target=entry_target(entry),
         beat_id=beat_id,
         entry=entry,
         command=command,
-        cwd=root,
+        cwd=source_root,
         media_dir=media_dir,
         env=env,
     )
@@ -398,6 +406,6 @@ def _print_diagnostics(plan: LivePlan, diagnostics: Sequence[LiveDiagnostic]) ->
 
 def _slugify(value: str) -> str:
     lowered = value.lower()
-    chars = [char if char.isalnum() else "-" for char in lowered]
+    chars = [char if char.isascii() and char.isalnum() else "-" for char in lowered]
     slug = "-".join(part for part in "".join(chars).split("-") if part)
     return slug or "live"
