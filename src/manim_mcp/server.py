@@ -128,6 +128,40 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         return services.propose_render_debug_patch(target, build_id, ctx)
 
     @mcp.tool()
+    def start_movie_session(
+        title: str = "Interactive Movie",
+        deck_id: str = "interactive",
+        scene_id: str | None = None,
+        class_name: str | None = None,
+    ) -> dict:
+        """Create a registered empty-slate movie session for live iteration."""
+        return services.start_movie_session(title, deck_id, scene_id, class_name, ctx)
+
+    @mcp.tool()
+    def get_movie_session(session_id: str) -> dict:
+        """Inspect accepted steps and live command for a movie session."""
+        return services.get_movie_session(session_id, ctx)
+
+    @mcp.tool()
+    def propose_movie_step(
+        session_id: str,
+        edits: list[dict],
+        rationale: str = "",
+    ) -> dict:
+        """Create a staged addon proposal for a movie session's registered scene."""
+        return services.propose_movie_step(session_id, edits, rationale, ctx)
+
+    @mcp.tool()
+    def accept_movie_step(
+        session_id: str,
+        proposal_id: str,
+        note: str = "",
+        confirm: str = "accept",
+    ) -> dict:
+        """Apply an approved staged proposal and append it to the session steps ledger."""
+        return services.accept_movie_step(session_id, proposal_id, note, confirm, ctx)
+
+    @mcp.tool()
     def export_deck(
         deck_id: str,
         format: str = "pptx",

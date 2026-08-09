@@ -140,6 +140,48 @@ part of the Docker/Cairo final-render path and does not create normal Studio
 build manifests. See [Live Preview](../concepts/live-preview.md) for the
 current limitations and manual GUI smoke test.
 
+## `studio session`
+
+Create and maintain interactive movie sessions.
+
+Start a registered empty-slate scene:
+
+```bash
+studio session start --title "Vector Movie" --deck-id vector_movie
+```
+
+Options:
+
+- `--title`
+- `--deck-id`
+- `--scene-id`
+- `--class-name`
+- `--repo-root`
+- `--catalog`
+
+Inspect the accepted step ledger:
+
+```bash
+studio session inspect <session-id>
+```
+
+Accept a staged proposal after validation and draft render:
+
+```bash
+studio session accept <session-id> <proposal-id> --confirm accept
+```
+
+Options:
+
+- `--note`
+- `--confirm`
+- `--repo-root`
+- `--builds-root`
+
+Session start writes a normal catalog entry and a source file under `decks/`.
+Accepted proposals are recorded in a `.steps.json` file beside the source. See
+[Movie Sessions](../concepts/movie-sessions.md).
+
 ## `studio render`
 
 Render one registered scene into an isolated build directory:

@@ -28,6 +28,10 @@ unrestricted shell.
 - `render_scene_patch`
 - `apply_scene_patch`
 - `propose_render_debug_patch`
+- `start_movie_session`
+- `get_movie_session`
+- `propose_movie_step`
+- `accept_movie_step`
 - `export_deck`
 
 ## Response Envelope
@@ -72,3 +76,15 @@ use `renderer: manim-slides`.
 ```
 
 Other formats return `unsupported`; mixed decks return `unsupported_deck`.
+
+## Movie Session Tools
+
+`start_movie_session` creates a registered empty-slate scene and returns the
+session ID, target, steps ledger path, and live-preview command.
+
+`propose_movie_step` stages a small addon against the session target. Use the
+normal staged inspection, validation, and draft render tools before acceptance.
+
+`accept_movie_step` requires `confirm: "accept"`. It applies the validated and
+rendered proposal, then appends the accepted proposal metadata to the session's
+`.steps.json` ledger.

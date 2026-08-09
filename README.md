@@ -87,6 +87,15 @@ studio live matrix_work/vectors_ab_to_v --beat resultant --diagnose
 Live preview is a development aid. Final artifacts still come from
 `studio render`, `studio build`, and `studio export`.
 
+Start an interactive movie session from an empty slate:
+
+```bash
+studio session start --title "Vector Movie" --deck-id vector_movie
+```
+
+The session command creates a registered scratch scene and a `.steps.json`
+ledger for accepted staged additions.
+
 Build a registered deck:
 
 ```bash

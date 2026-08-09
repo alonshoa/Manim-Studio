@@ -21,6 +21,7 @@ from manim_studio.catalog import (
     parse_scene_target,
 )
 from manim_studio.profiles import get_profile, profile_names
+from manim_studio import movie_sessions
 from manim_studio import staged_edits
 from manim_studio.validation import validate_scene_preflight
 
@@ -479,6 +480,93 @@ def propose_render_debug_patch(
     return success(data, status="proposed")
 
 
+def start_movie_session(
+    title: str = "Interactive Movie",
+    deck_id: str = "interactive",
+    scene_id: str | None = None,
+    class_name: str | None = None,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = movie_sessions.start_movie_session(
+            ctx.repo_root,
+            ctx.catalog_path,
+            title=title,
+            deck_id=deck_id,
+            scene_id=scene_id,
+            class_name=class_name,
+        )
+    except movie_sessions.MovieSessionError as exc:
+        return _movie_session_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "movie session could not be started", detail=str(exc))
+    return success(data, status="started")
+
+
+def get_movie_session(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = movie_sessions.get_movie_session(ctx.repo_root, session_id)
+    except movie_sessions.MovieSessionError as exc:
+        return _movie_session_error(exc)
+    return success(data)
+
+
+def propose_movie_step(
+    session_id: str,
+    edits: list[dict[str, Any]],
+    rationale: str = "",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = movie_sessions.propose_movie_step(
+            ctx.repo_root,
+            ctx.catalog_path,
+            ctx.builds_root,
+            session_id,
+            edits,
+            rationale,
+        )
+    except movie_sessions.MovieSessionError as exc:
+        return _movie_session_error(exc)
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "movie step could not be proposed", detail=str(exc))
+    return success(data, status="proposed")
+
+
+def accept_movie_step(
+    session_id: str,
+    proposal_id: str,
+    note: str = "",
+    confirm: str = "accept",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = movie_sessions.accept_movie_step(
+            ctx.repo_root,
+            ctx.builds_root,
+            session_id,
+            proposal_id,
+            note=note,
+            confirm=confirm,
+        )
+    except movie_sessions.MovieSessionError as exc:
+        return _movie_session_error(exc)
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "movie step could not be accepted", detail=str(exc))
+    return success(data, status="accepted")
+
+
 def export_deck(
     deck_id: str,
     format: str = "pptx",
@@ -603,6 +691,10 @@ def _log_text(inspection: dict[str, Any], stream: Literal["stdout", "stderr"]) -
 
 
 def _staged_error(exc: staged_edits.StagedEditError) -> dict[str, Any]:
+    return failure(exc.code, exc.message, detail=exc.detail)
+
+
+def _movie_session_error(exc: movie_sessions.MovieSessionError) -> dict[str, Any]:
     return failure(exc.code, exc.message, detail=exc.detail)
 
 

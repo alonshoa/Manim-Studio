@@ -690,6 +690,103 @@ def run_project_verify(path: Path | str, render: bool = False) -> int:
     return 0
 
 
+def run_session_start(
+    title: str,
+    deck_id: str,
+    scene_id: str | None = None,
+    class_name: str | None = None,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+) -> int:
+    from manim_studio.movie_sessions import MovieSessionError, start_movie_session
+
+    try:
+        session = start_movie_session(
+            _repo_root(repo_root),
+            catalog_path or DEFAULT_CATALOG_PATH,
+            title=title,
+            deck_id=deck_id,
+            scene_id=scene_id,
+            class_name=class_name,
+        )
+    except MovieSessionError as exc:
+        print(f"{exc.code}: {exc.message}")
+        if exc.detail is not None:
+            print(exc.detail)
+        return 1
+
+    print(f"Movie session started: {session['session_id']}")
+    print(f"Target: {session['target']}")
+    print(f"Source: {session['source_path']}")
+    print(f"Steps: {session['steps_path']}")
+    print(f"Live command: {session['live']['command']}")
+    return 0
+
+
+def run_session_inspect(
+    session_id: str,
+    repo_root: Path | str | None = None,
+) -> int:
+    from manim_studio.movie_sessions import MovieSessionError, get_movie_session
+
+    try:
+        session = get_movie_session(_repo_root(repo_root), session_id)
+    except MovieSessionError as exc:
+        print(f"{exc.code}: {exc.message}")
+        if exc.detail is not None:
+            print(exc.detail)
+        return 1
+
+    print(f"Movie session: {session['session_id']}")
+    print(f"Title: {session['title']}")
+    print(f"Target: {session['target']}")
+    print(f"Source: {session['source_path']}")
+    print(f"Steps: {session['steps_path']}")
+    print(f"Live command: {session['live']['command']}")
+    steps = session["accepted_steps"]
+    if not steps:
+        print("Accepted steps: none")
+        return 0
+    print("Accepted steps:")
+    for step in steps:
+        note = step.get("note") or step.get("rationale") or ""
+        print(f"- {step.get('step')}  {step.get('proposal_id')}  {note}")
+    return 0
+
+
+def run_session_accept(
+    session_id: str,
+    proposal_id: str,
+    note: str = "",
+    confirm: str = "accept",
+    repo_root: Path | str | None = None,
+    builds_root: Path | str = "builds",
+) -> int:
+    from manim_studio.movie_sessions import MovieSessionError, accept_movie_step
+    from manim_studio.staged_edits import StagedEditError
+
+    try:
+        session = accept_movie_step(
+            _repo_root(repo_root),
+            builds_root,
+            session_id,
+            proposal_id,
+            note=note,
+            confirm=confirm,
+        )
+    except (MovieSessionError, StagedEditError) as exc:
+        print(f"{exc.code}: {exc.message}")
+        if exc.detail is not None:
+            print(exc.detail)
+        return 1
+
+    print(f"Accepted proposal: {proposal_id}")
+    print(f"Movie session: {session['session_id']}")
+    print(f"Accepted steps: {len(session['accepted_steps'])}")
+    print(f"Steps: {session['steps_path']}")
+    return 0
+
+
 def _repo_root(repo_root: Path | str | None) -> Path:
     return (Path.cwd() if repo_root is None else Path(repo_root)).resolve()
 
@@ -975,6 +1072,75 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also run a draft render and confirm a host-visible artifact.",
     )
 
+    session_parser = subparsers.add_parser(
+        "session",
+        help="Create and maintain interactive movie sessions.",
+    )
+    session_subparsers = session_parser.add_subparsers(
+        dest="session_command",
+        required=True,
+    )
+    session_start_parser = session_subparsers.add_parser(
+        "start",
+        help="Create a registered empty-slate scene for interactive movie building.",
+    )
+    session_start_parser.add_argument(
+        "--title",
+        default="Interactive Movie",
+        help="Human-readable movie session title.",
+    )
+    session_start_parser.add_argument(
+        "--deck-id",
+        default="interactive",
+        help="Deck ID for the generated scene. Defaults to interactive.",
+    )
+    session_start_parser.add_argument("--scene-id", default=None, help="Scene ID.")
+    session_start_parser.add_argument("--class-name", default=None, help="Scene class name.")
+    session_start_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository root to create the session in. Defaults to the current directory.",
+    )
+    session_start_parser.add_argument(
+        "--catalog",
+        default=DEFAULT_CATALOG_PATH,
+        help=f"Catalog file path. Defaults to {DEFAULT_CATALOG_PATH}.",
+    )
+
+    session_inspect_parser = session_subparsers.add_parser(
+        "inspect",
+        help="Inspect an interactive movie session ledger.",
+    )
+    session_inspect_parser.add_argument("session_id", help="Movie session ID.")
+    session_inspect_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository root to inspect from. Defaults to the current directory.",
+    )
+
+    session_accept_parser = session_subparsers.add_parser(
+        "accept",
+        help="Apply an approved staged proposal and save it as an accepted movie step.",
+    )
+    session_accept_parser.add_argument("session_id", help="Movie session ID.")
+    session_accept_parser.add_argument("proposal_id", help="Staged proposal ID.")
+    session_accept_parser.add_argument("--note", default="", help="Short acceptance note.")
+    session_accept_parser.add_argument(
+        "--confirm",
+        default="accept",
+        help="Must be accept. Defaults to accept.",
+    )
+    session_accept_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository root to accept into. Defaults to the current directory.",
+    )
+    session_accept_parser.add_argument(
+        "--builds-root",
+        default="builds",
+        help="Build output root. Defaults to builds.",
+    )
+
     catalog_parser = subparsers.add_parser(
         "catalog",
         help="Inspect and validate scene catalog metadata.",
@@ -1096,6 +1262,29 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if args.command == "project" and args.project_command == "verify":
         return run_project_verify(args.path, render=args.render)
+
+    if args.command == "session" and args.session_command == "start":
+        return run_session_start(
+            args.title,
+            args.deck_id,
+            scene_id=args.scene_id,
+            class_name=args.class_name,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+        )
+
+    if args.command == "session" and args.session_command == "inspect":
+        return run_session_inspect(args.session_id, repo_root=args.repo_root)
+
+    if args.command == "session" and args.session_command == "accept":
+        return run_session_accept(
+            args.session_id,
+            args.proposal_id,
+            note=args.note,
+            confirm=args.confirm,
+            repo_root=args.repo_root,
+            builds_root=args.builds_root,
+        )
 
     if args.command == "catalog" and args.catalog_command == "validate":
         return run_catalog_validate(
