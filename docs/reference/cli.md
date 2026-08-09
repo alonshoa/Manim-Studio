@@ -113,6 +113,33 @@ List named beats discovered in a registered scene:
 studio beats <deck-id>/<scene-id>
 ```
 
+## `studio live`
+
+Start an experimental OpenGL live-preview session at a named beat:
+
+```bash
+studio live <deck-id>/<scene-id> --beat <beat-id>
+```
+
+Print environment diagnostics before starting:
+
+```bash
+studio live <deck-id>/<scene-id> --beat <beat-id> --diagnose
+```
+
+Options:
+
+- `--beat <beat-id>` (required)
+- `--repo-root`
+- `--catalog`
+- `--live-root`
+- `--diagnose`
+
+Live preview uses local host Python and Manim CE's OpenGL renderer. It is not
+part of the Docker/Cairo final-render path and does not create normal Studio
+build manifests. See [Live Preview](../concepts/live-preview.md) for the
+current limitations and manual GUI smoke test.
+
 ## `studio render`
 
 Render one registered scene into an isolated build directory:

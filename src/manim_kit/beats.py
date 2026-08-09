@@ -5,6 +5,7 @@ from dataclasses import dataclass
 
 
 TARGET_BEAT_ENV = "MANIM_STUDIO_BEAT"
+LIVE_BEAT_ENV = "MANIM_STUDIO_LIVE_BEAT"
 WINDOWS_UNSAFE_FILENAME_CHARS = set('<>:"/\\|?*')
 
 
@@ -41,7 +42,8 @@ class BeatMixin:
             setattr(self, "_manim_studio_started_beats", True)
             if hasattr(self, "next_section"):
                 self.next_section(name=section_name, skip_animations=skip_animations)
-            return
+                self._maybe_enter_live_preview(beat_id)
+                return
 
         if hasattr(self, "next_slide"):
             self.next_slide(
@@ -49,13 +51,24 @@ class BeatMixin:
                 skip_animations=skip_animations,
                 **slide_kwargs,
             )
+            self._maybe_enter_live_preview(beat_id)
             return
 
         if hasattr(self, "next_section"):
             self.next_section(name=section_name, skip_animations=skip_animations)
+            self._maybe_enter_live_preview(beat_id)
             return
 
         raise AttributeError("beat() requires next_section() or next_slide() support")
+
+    def _maybe_enter_live_preview(self, beat_id: str) -> None:
+        live_beat = os.environ.get(LIVE_BEAT_ENV)
+        if live_beat != beat_id:
+            return
+        interactive_embed = getattr(self, "interactive_embed", None)
+        if interactive_embed is None:
+            raise AttributeError("live preview requires interactive_embed() support")
+        interactive_embed()
 
 
 def _section_name(beat_id: str, label: str) -> str:

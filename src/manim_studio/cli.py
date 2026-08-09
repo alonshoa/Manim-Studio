@@ -395,6 +395,31 @@ def run_beats(
     return 0
 
 
+def run_live(
+    target: str,
+    beat_id: str,
+    repo_root: Path | str | None = None,
+    catalog_path: Path | str | None = None,
+    live_root: Path | str = ".manim-studio/live",
+    diagnose: bool = False,
+    runner=None,
+) -> int:
+    from manim_studio.live import run_live_preview
+
+    kwargs = {}
+    if runner is not None:
+        kwargs["runner"] = runner
+    return run_live_preview(
+        target,
+        beat_id,
+        repo_root=repo_root,
+        catalog_path=catalog_path,
+        live_root=live_root,
+        diagnose=diagnose,
+        **kwargs,
+    )
+
+
 def run_build(
     deck_id: str,
     profile_name: str,
@@ -769,6 +794,37 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Catalog file path. Defaults to {DEFAULT_CATALOG_PATH}.",
     )
 
+    live_parser = subparsers.add_parser(
+        "live",
+        help="Start an experimental OpenGL live preview at a named beat.",
+    )
+    live_parser.add_argument("target", help="Scene target as <deck_id>/<scene_id>.")
+    live_parser.add_argument(
+        "--beat",
+        required=True,
+        help="Named beat where the scene should enter interactive mode.",
+    )
+    live_parser.add_argument(
+        "--repo-root",
+        default=None,
+        help="Repository root to run from. Defaults to the current directory.",
+    )
+    live_parser.add_argument(
+        "--catalog",
+        default=DEFAULT_CATALOG_PATH,
+        help=f"Catalog file path. Defaults to {DEFAULT_CATALOG_PATH}.",
+    )
+    live_parser.add_argument(
+        "--live-root",
+        default=".manim-studio/live",
+        help="Transient live-preview output root. Defaults to .manim-studio/live.",
+    )
+    live_parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Print live-preview environment diagnostics before starting.",
+    )
+
     build_deck_parser = subparsers.add_parser(
         "build",
         help="Render all scenes in a registered deck serially.",
@@ -979,6 +1035,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.target,
             repo_root=args.repo_root,
             catalog_path=args.catalog,
+        )
+
+    if args.command == "live":
+        return run_live(
+            args.target,
+            args.beat,
+            repo_root=args.repo_root,
+            catalog_path=args.catalog,
+            live_root=args.live_root,
+            diagnose=args.diagnose,
         )
 
     if args.command == "build":

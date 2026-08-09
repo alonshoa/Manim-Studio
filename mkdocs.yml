@@ -37,6 +37,7 @@ nav:
       - Project Model: concepts/project-model.md
       - Catalog: concepts/catalog.md
       - Render Profiles: concepts/render-profiles.md
+      - Live Preview: concepts/live-preview.md
   - Workflows:
       - Render A Scene: workflows/render-a-scene.md
       - Render A Beat: workflows/render-a-beat.md

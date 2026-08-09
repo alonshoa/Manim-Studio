@@ -46,3 +46,12 @@ Render one beat:
 ```bash
 studio render matrix_work/vectors_ab_to_v --profile draft --beat resultant
 ```
+
+Start an experimental OpenGL live preview at a beat:
+
+```bash
+studio live matrix_work/vectors_ab_to_v --beat resultant
+```
+
+Live preview is optional and local-only. Normal renders remain the supported
+path for reproducible artifacts.

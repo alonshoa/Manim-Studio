@@ -78,6 +78,15 @@ Render a named beat:
 studio render matrix_work/vectors_ab_to_v --profile draft --beat resultant
 ```
 
+Start an experimental local OpenGL live preview at a named beat:
+
+```bash
+studio live matrix_work/vectors_ab_to_v --beat resultant --diagnose
+```
+
+Live preview is a development aid. Final artifacts still come from
+`studio render`, `studio build`, and `studio export`.
+
 Build a registered deck:
 
 ```bash
@@ -148,6 +157,7 @@ Still planned or intentionally unsupported:
 - HTML, PDF, ZIP, and mixed Manim/non-slide deck export
 - visual regression checks beyond review-frame/contact-sheet artifacts
 - cloud rendering, distributed workers, or GPU/OpenGL as a default workflow
+- verified GUI live preview in headless/container environments
 - a YAML-only animation language
 - fully autonomous scene editing through MCP
 - unrestricted shell access through MCP

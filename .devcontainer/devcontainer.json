@@ -7,6 +7,18 @@
   },
   "remoteUser": "manimuser",
   "workspaceFolder": "/workspaces/Manim-Studio",
+  "mounts": [
+    "source=/mnt/wslg,target=/mnt/wslg,type=bind",
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind"
+  ],
+  "remoteEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}",
+    "WAYLAND_DISPLAY": "${localEnv:WAYLAND_DISPLAY}",
+    "XDG_RUNTIME_DIR": "${localEnv:XDG_RUNTIME_DIR}",
+    "PULSE_SERVER": "${localEnv:PULSE_SERVER}",
+    "LIBGL_ALWAYS_SOFTWARE": "1",
+    "MANIM_STUDIO_ALLOW_CONTAINER_LIVE": "1"
+  },
   "postCreateCommand": "/opt/venv/bin/python -m pip install --no-cache-dir -e '.[dev]' && /opt/venv/bin/python -m manim_studio.cli doctor",
   "customizations": {
     "vscode": {

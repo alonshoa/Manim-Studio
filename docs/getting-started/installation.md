@@ -52,6 +52,26 @@ Open the repository in VS Code and run **Dev Containers: Reopen in Container**.
 The devcontainer builds the `dev` target from the root `Dockerfile`, installs
 the package in editable mode, and runs `studio doctor` after creation.
 
+The devcontainer also forwards WSLg/X11 display sockets for the experimental
+OpenGL live-preview workflow. This path is intended for Windows + WSLg with the
+repository opened from the WSL filesystem. The default configuration mounts
+`/mnt/wslg` and `/tmp/.X11-unix`, forwards `DISPLAY`, `WAYLAND_DISPLAY`,
+`XDG_RUNTIME_DIR`, and `PULSE_SERVER`, and enables `LIBGL_ALWAYS_SOFTWARE=1` for
+predictable Mesa-based OpenGL startup.
+
+After reopening in the devcontainer, test live-preview prerequisites with:
+
+```bash
+studio live matrix_work/vectors_ab_to_v --beat resultant --diagnose
+```
+
+If the WSLg paths are unavailable on the host, use local host Python for
+`studio live` or use the headless beat render fallback:
+
+```bash
+studio render matrix_work/vectors_ab_to_v --profile draft --beat resultant
+```
+
 ## Local Python Install
 
 For non-container development, use Python 3.11 or newer:
