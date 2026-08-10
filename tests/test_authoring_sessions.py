@@ -136,6 +136,77 @@ class AuthoringSessionTests(unittest.TestCase):
         self.assertNotEqual(fixture.root, fake_live.calls[1]["cwd"])
         self.assertEqual("step_001", preview["beat"])
 
+    def test_render_authoring_preview_renders_canonical_source(self) -> None:
+        with AuthoringFixture() as fixture, fake_manim_module():
+            controller = fixture.controller()
+            started = controller.start_session(
+                title="Story",
+                deck_id="story",
+                scene_id="scratch",
+                class_name="ScratchScene",
+            )
+            before = fixture.source_text("decks/story/scratch.py")
+            render = controller.dispatch("render_authoring_preview", {"session_id": started["session_id"]})
+            artifact_exists = Path(str(render["artifact_path"])).is_file()
+            after = fixture.source_text("decks/story/scratch.py")
+
+        self.assertEqual("canonical", render["source_kind"])
+        self.assertEqual("success", render["render_status"])
+        self.assertEqual("empty", render["beat"])
+        self.assertEqual(0, render["revision"])
+        self.assertIsNone(render["proposal_id"])
+        self.assertIsNotNone(render["build_id"])
+        self.assertTrue(artifact_exists)
+        self.assertEqual(before, after)
+
+    def test_render_authoring_preview_renders_previewed_candidate(self) -> None:
+        with AuthoringFixture() as fixture, fake_manim_module():
+            controller = fixture.controller()
+            started = controller.start_session(
+                title="Story",
+                deck_id="story",
+                scene_id="scratch",
+                class_name="ScratchScene",
+            )
+            proposed = controller.propose_next_movie_step(
+                started["session_id"],
+                "dot = Dot(color=RED)\nself.add(dot)",
+                title="Add dot",
+            )
+            before = fixture.source_text("decks/story/scratch.py")
+            controller.preview_proposal(started["session_id"], proposed["active_proposal_id"])
+            render = controller.render_authoring_preview(started["session_id"])
+            artifact_exists = Path(str(render["artifact_path"])).is_file()
+            after = fixture.source_text("decks/story/scratch.py")
+
+        self.assertEqual("candidate", render["source_kind"])
+        self.assertEqual(proposed["active_proposal_id"], render["proposal_id"])
+        self.assertEqual("success", render["render_status"])
+        self.assertEqual("step_001", render["beat"])
+        self.assertEqual(0, render["revision"])
+        self.assertIn("_preview", str(render["artifact_path"]))
+        self.assertTrue(artifact_exists)
+        self.assertEqual(before, after)
+
+    def test_render_authoring_preview_failure_returns_structured_error(self) -> None:
+        with AuthoringFixture() as fixture, fake_manim_module():
+            controller = fixture.controller(render_runner=FakeRenderRunner(returncode=1, stderr="boom"))
+            started = controller.start_session(
+                title="Story",
+                deck_id="story",
+                scene_id="scratch",
+                class_name="ScratchScene",
+            )
+            render = controller.render_authoring_preview(started["session_id"])
+            status = controller.get_status(started["session_id"])
+
+        self.assertEqual("failed", render["render_status"])
+        self.assertIsNone(render["artifact_path"])
+        self.assertEqual("render_failed", render["render_error"]["code"])
+        self.assertIn("boom", render["render_error"]["detail"]["log_excerpt"])
+        self.assertEqual("READY", status["authoring_status"])
+        self.assertEqual("NONE", status["proposal_status"])
+
     def test_default_live_launch_does_not_create_new_windows_console(self) -> None:
         with AuthoringFixture() as fixture:
             controller = AuthoringSessionController(fixture.root, check_executables=False)

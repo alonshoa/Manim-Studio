@@ -60,7 +60,7 @@ export class StudioRpcClient {
     });
   }
 
-  async request(method: string, params: Record<string, unknown> = {}): Promise<RpcResponse> {
+  async request(method: string, params: Record<string, unknown> = {}, timeoutMs = this.requestTimeoutMs): Promise<RpcResponse> {
     this.start();
     if (!this.process) {
       throw new Error("studio authoring rpc did not start");
@@ -70,8 +70,8 @@ export class StudioRpcClient {
     const result = new Promise<RpcResponse>((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`studio authoring rpc timed out after ${this.requestTimeoutMs}ms: ${method}`));
-      }, this.requestTimeoutMs);
+        reject(new Error(`studio authoring rpc timed out after ${timeoutMs}ms: ${method}`));
+      }, timeoutMs);
       this.pending.set(id, { resolve, reject, timer });
     });
     this.process.stdin.write(`${payload}\n`, (error) => {

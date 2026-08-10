@@ -432,7 +432,7 @@ class AuthoringSessionController:
         self._write_state(state)
         return self._compact(state, status="paused")
 
-    def resume_session(self, session_id: str) -> dict[str, Any]:
+    def resume_session(self, session_id: str, start_live: bool = True) -> dict[str, Any]:
         state = self._load_state(session_id)
         if state.authoring_status == AuthoringStatus.COMPLETED:
             raise AuthoringSessionError("completed", "completed sessions must be reopened explicitly")
@@ -447,8 +447,9 @@ class AuthoringSessionController:
             last_error=None,
         )
         self._write_state(state)
-        state = self._restart_live_process(state)
-        self._write_state(state)
+        if start_live:
+            state = self._restart_live_process(state)
+            self._write_state(state)
         return self._compact(state, status="resumed")
 
     def finish_session(self, session_id: str) -> dict[str, Any]:
@@ -518,6 +519,68 @@ class AuthoringSessionController:
         )
         self._write_state(state)
         return self._compact(state, status="completed")
+
+    def render_authoring_preview(self, session_id: str) -> dict[str, Any]:
+        state = self._load_state(session_id)
+        state = self._refresh_live_status(state)
+        profile = get_profile("draft")
+        proposal_id = state.active_proposal_id if state.proposal_status == ProposalStatus.PREVIEWED else None
+        source_kind = "candidate" if proposal_id else "canonical"
+        source_root = self.repo_root
+        entry_state = state
+        try:
+            if proposal_id:
+                proposal = self._prepare_candidate_source(state, proposal_id)
+                source_root = Path(str(proposal["workspace_root"])).resolve()
+                entry_state = self._replace_state(
+                    state,
+                    live_source_root=str(source_root),
+                    live_source_path=str(proposal["source_path"]),
+                    current_beat=str(proposal["beat"]),
+                )
+                builds_root: Path | str = self._preview_render_root(proposal_id)
+            else:
+                movie = self._movie_session(session_id)
+                source_root = self.repo_root
+                entry_state = self._replace_state(
+                    state,
+                    live_source_root=str(self.repo_root),
+                    live_source_path=movie["source_path"],
+                    current_beat=self._latest_movie_beat(movie),
+                )
+                builds_root = self.builds_root
+
+            build = render_scene(
+                source_root,
+                self._entry_for_state(entry_state),
+                profile,
+                builds_root=builds_root,
+                runner=self.render_runner,
+                beat_id=entry_state.current_beat,
+                force=False,
+            )
+            artifact = _first_video_artifact(build.build_dir)
+            return {
+                **self._compact(entry_state, status="rendered"),
+                "source_kind": source_kind,
+                "proposal_id": proposal_id,
+                "render_status": build.status,
+                "artifact_path": artifact,
+                "build_id": build.build_id,
+                "render_error": None if build.status == "success" else _render_error(build),
+                "error": None if build.status == "success" else _render_error(build),
+            }
+        except Exception as exc:  # noqa: BLE001 - RPC result must be structured and non-fatal for preview.
+            return {
+                **self._compact(state, status="render_failed"),
+                "source_kind": source_kind,
+                "proposal_id": proposal_id,
+                "render_status": "failed",
+                "artifact_path": None,
+                "build_id": None,
+                "render_error": _exception_payload(exc),
+                "error": _exception_payload(exc),
+            }
 
     def start_live(self, session_id: str) -> dict[str, Any]:
         state = self._load_state(session_id)
@@ -619,9 +682,14 @@ class AuthoringSessionController:
                 proposal_policy=str(params.get("proposal_policy", "keep")),
             )
         if method == "resume_session":
-            return self.resume_session(str(params["session_id"]))
+            return self.resume_session(
+                str(params["session_id"]),
+                start_live=bool(params.get("start_live", True)),
+            )
         if method == "finish_session":
             return self.finish_session(str(params["session_id"]))
+        if method == "render_authoring_preview":
+            return self.render_authoring_preview(str(params["session_id"]))
         if method == "start_live":
             return self.start_live(str(params["session_id"]))
         if method == "reload_live":
@@ -788,6 +856,10 @@ class AuthoringSessionController:
         if not path.is_absolute():
             path = self.repo_root / path
         return path.resolve() / "staged"
+
+    def _preview_render_root(self, proposal_id: str) -> Path:
+        digest = hashlib.sha256(proposal_id.encode("utf-8")).hexdigest()[:10]
+        return self._staged_root() / "_preview" / digest
 
     def _proposal_summaries(
         self,
@@ -1304,6 +1376,37 @@ def _first_video_artifact(build_dir: Path) -> str | None:
         if path.is_file() and path.suffix.lower() in {".mp4", ".mov", ".webm"}:
             return str(path)
     return None
+
+
+def _render_error(build: Any) -> dict[str, Any]:
+    manifest_path = Path(build.build_dir) / "manifest.json"
+    manifest: dict[str, Any] = {}
+    if manifest_path.exists():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            manifest = {}
+    stderr_path = Path(build.build_dir) / str(manifest.get("stderr_log", "stderr.log"))
+    stdout_path = Path(build.build_dir) / str(manifest.get("stdout_log", "stdout.log"))
+    detail = ""
+    for log_path in (stderr_path, stdout_path):
+        if log_path.exists():
+            text = log_path.read_text(encoding="utf-8", errors="replace").strip()
+            if text:
+                detail = text[-2000:]
+                break
+    return {
+        "code": str(manifest.get("failure_class") or "render_failed"),
+        "message": "authoring preview render failed",
+        "detail": {
+            "build_id": getattr(build, "build_id", None),
+            "returncode": getattr(build, "returncode", None),
+            "build_dir": str(getattr(build, "build_dir", "")),
+            "stderr_log": str(stderr_path),
+            "stdout_log": str(stdout_path),
+            "log_excerpt": detail,
+        },
+    }
 
 
 def _sha256_text(text: str) -> str:

@@ -24,7 +24,10 @@
     "onCommand:manimStudio.reviseActiveProposal",
     "onCommand:manimStudio.restartLivePreview",
     "onCommand:manimStudio.stopLivePreview",
-    "onCommand:manimStudio.showSessionStatus"
+    "onCommand:manimStudio.showSessionStatus",
+    "onCommand:manimStudio.openWorkspace",
+    "onCommand:manimStudio.openTerminal",
+    "onCommand:manimStudio.refreshPreview"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -45,10 +48,46 @@
           "type": "number",
           "default": 30000,
           "description": "Timeout in milliseconds for local Studio authoring RPC requests."
+        },
+        "manimStudio.renderRequestTimeoutMs": {
+          "type": "number",
+          "default": 180000,
+          "description": "Timeout in milliseconds for embedded preview renders and other render-backed authoring requests."
+        },
+        "manimStudio.previewMode": {
+          "type": "string",
+          "enum": [
+            "embedded",
+            "externalOpenGL"
+          ],
+          "default": "embedded",
+          "description": "Preview mode used by normal authoring commands. Embedded renders draft videos inside VS Code; externalOpenGL keeps the legacy OpenGL live window workflow."
+        },
+        "manimStudio.powerShellExecutable": {
+          "type": "string",
+          "default": "",
+          "description": "Optional explicit PowerShell executable for the dedicated Manim Studio integrated terminal. When empty, Windows prefers pwsh.exe and falls back to powershell.exe."
+        },
+        "manimStudio.openTerminalOnSessionStart": {
+          "type": "boolean",
+          "default": true,
+          "description": "Open the Manim Studio integrated terminal once when starting or resuming an authoring session."
         }
       }
     },
     "commands": [
+      {
+        "command": "manimStudio.openWorkspace",
+        "title": "Manim Studio: Open Authoring Workspace"
+      },
+      {
+        "command": "manimStudio.openTerminal",
+        "title": "Manim Studio: Open Terminal"
+      },
+      {
+        "command": "manimStudio.refreshPreview",
+        "title": "Manim Studio: Refresh Preview Panel"
+      },
       {
         "command": "manimStudio.startAuthoringSession",
         "title": "Manim Studio: Start Authoring Session"
@@ -99,7 +138,7 @@
       },
       {
         "command": "manimStudio.stopLivePreview",
-        "title": "Manim Studio: Stop Session"
+        "title": "Manim Studio: Stop Live Preview"
       },
       {
         "command": "manimStudio.showSessionStatus",
@@ -109,7 +148,7 @@
   },
   "scripts": {
     "compile": "tsc -p .",
-    "test": "node test/manifest.test.js && node test/rpc-client.test.js && node test/extension-source.test.js"
+    "test": "npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
