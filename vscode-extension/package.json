@@ -12,10 +12,16 @@
   ],
   "activationEvents": [
     "onCommand:manimStudio.startAuthoringSession",
+    "onCommand:manimStudio.resumeLastSession",
+    "onCommand:manimStudio.switchActiveSession",
+    "onCommand:manimStudio.pauseSession",
+    "onCommand:manimStudio.finishSession",
+    "onCommand:manimStudio.continueAuthoring",
     "onCommand:manimStudio.startLivePreview",
     "onCommand:manimStudio.previewActiveProposal",
     "onCommand:manimStudio.acceptActiveProposal",
     "onCommand:manimStudio.rejectActiveProposal",
+    "onCommand:manimStudio.reviseActiveProposal",
     "onCommand:manimStudio.restartLivePreview",
     "onCommand:manimStudio.stopLivePreview",
     "onCommand:manimStudio.showSessionStatus"
@@ -35,10 +41,10 @@
           "default": "",
           "description": "Optional Python executable for future local environment selection."
         },
-        "manimStudio.lastSessionId": {
-          "type": "string",
-          "default": "",
-          "description": "Last authoring session ID used by the extension."
+        "manimStudio.requestTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "Timeout in milliseconds for local Studio authoring RPC requests."
         }
       }
     },
@@ -46,6 +52,26 @@
       {
         "command": "manimStudio.startAuthoringSession",
         "title": "Manim Studio: Start Authoring Session"
+      },
+      {
+        "command": "manimStudio.resumeLastSession",
+        "title": "Manim Studio: Resume Last Session"
+      },
+      {
+        "command": "manimStudio.switchActiveSession",
+        "title": "Manim Studio: Switch Active Session"
+      },
+      {
+        "command": "manimStudio.pauseSession",
+        "title": "Manim Studio: Pause Session"
+      },
+      {
+        "command": "manimStudio.finishSession",
+        "title": "Manim Studio: Finish Session"
+      },
+      {
+        "command": "manimStudio.continueAuthoring",
+        "title": "Manim Studio: Continue Authoring"
       },
       {
         "command": "manimStudio.startLivePreview",
@@ -64,12 +90,16 @@
         "title": "Manim Studio: Reject Active Proposal"
       },
       {
+        "command": "manimStudio.reviseActiveProposal",
+        "title": "Manim Studio: Revise Active Proposal"
+      },
+      {
         "command": "manimStudio.restartLivePreview",
         "title": "Manim Studio: Restart Live Preview"
       },
       {
         "command": "manimStudio.stopLivePreview",
-        "title": "Manim Studio: Stop Live Preview"
+        "title": "Manim Studio: Stop Session"
       },
       {
         "command": "manimStudio.showSessionStatus",
@@ -79,7 +109,7 @@
   },
   "scripts": {
     "compile": "tsc -p .",
-    "test": "node test/manifest.test.js"
+    "test": "node test/manifest.test.js && node test/rpc-client.test.js && node test/extension-source.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

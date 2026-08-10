@@ -47,7 +47,7 @@ def validate_scene_preflight(
     entry: CatalogEntry,
     profile: RenderProfile,
     check_executables: bool = True,
-    executable_resolver: ExecutableResolver = shutil.which,
+    executable_resolver: ExecutableResolver | None = None,
 ) -> PreflightResult:
     root = Path(repo_root).resolve()
     target = entry_target(entry)
@@ -66,7 +66,8 @@ def validate_scene_preflight(
         )
     elif check_executables:
         executable = _renderer_executable(entry)
-        if executable_resolver(executable) is None:
+        resolver = executable_resolver or _which_in_current_python_environment
+        if resolver(executable) is None:
             issues.append(
                 ValidationIssue(
                     "missing_renderer_executable",
@@ -337,6 +338,19 @@ def _renderer_executable(entry: CatalogEntry) -> str:
     if entry.renderer == "manim-slides":
         return "manim-slides"
     return entry.renderer
+
+
+def _which_in_current_python_environment(executable: str) -> str | None:
+    resolved = shutil.which(executable)
+    if resolved is not None:
+        return resolved
+    scripts_dir = Path(sys.executable).resolve().parent
+    suffixes = ("", ".exe", ".cmd", ".bat") if sys.platform == "win32" else ("",)
+    for suffix in suffixes:
+        candidate = scripts_dir / f"{executable}{suffix}"
+        if candidate.is_file():
+            return str(candidate)
+    return None
 
 
 def _string_constant(node: ast.AST) -> str | None:

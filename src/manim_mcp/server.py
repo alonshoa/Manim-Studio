@@ -143,9 +143,19 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         return services.get_movie_session(session_id, ctx)
 
     @mcp.tool()
+    def list_authoring_sessions() -> dict:
+        """List persisted authoring sessions with compact state summaries."""
+        return services.list_authoring_sessions(ctx)
+
+    @mcp.tool()
     def get_authoring_session_status(session_id: str) -> dict:
         """Read compact authoring-session and live-preview state."""
         return services.get_authoring_session_status(session_id, ctx)
+
+    @mcp.tool()
+    def discover_active_proposal(session_id: str) -> dict:
+        """Discover the newest actionable staged proposal for an authoring session."""
+        return services.discover_active_proposal(session_id, ctx)
 
     @mcp.tool()
     def propose_movie_step(
@@ -155,6 +165,16 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
     ) -> dict:
         """Create a staged addon proposal for a movie session's registered scene."""
         return services.propose_movie_step(session_id, edits, rationale, ctx)
+
+    @mcp.tool()
+    def propose_next_movie_step(
+        session_id: str,
+        body: str,
+        title: str = "Next step",
+        rationale: str = "",
+    ) -> dict:
+        """Append the next semantic free-form authoring step inside construct()."""
+        return services.propose_next_movie_step(session_id, body, title, rationale, ctx)
 
     @mcp.tool()
     def preview_movie_step(session_id: str, proposal_id: str) -> dict:
@@ -175,6 +195,30 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
     def reject_movie_step(session_id: str, proposal_id: str | None = None) -> dict:
         """Reject the active movie proposal and return live preview to accepted source."""
         return services.reject_movie_step(session_id, proposal_id, ctx)
+
+    @mcp.tool()
+    def revise_movie_step(
+        session_id: str,
+        feedback: str,
+        proposal_id: str | None = None,
+    ) -> dict:
+        """Request a distinct revision and expose feedback to authoring context."""
+        return services.revise_movie_step(session_id, feedback, proposal_id, ctx)
+
+    @mcp.tool()
+    def pause_authoring_session(session_id: str, proposal_policy: str = "keep") -> dict:
+        """Pause an authoring session and optionally keep or reject an active draft."""
+        return services.pause_authoring_session(session_id, proposal_policy, ctx)
+
+    @mcp.tool()
+    def resume_authoring_session(session_id: str) -> dict:
+        """Resume a paused authoring session and restore live preview."""
+        return services.resume_authoring_session(session_id, ctx)
+
+    @mcp.tool()
+    def finish_authoring_session(session_id: str) -> dict:
+        """Validate and draft-render the accepted canonical session scene."""
+        return services.finish_authoring_session(session_id, ctx)
 
     @mcp.tool()
     def start_authoring_live(session_id: str) -> dict:

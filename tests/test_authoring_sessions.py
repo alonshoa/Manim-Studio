@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -29,6 +30,9 @@ class AuthoringSessionTests(unittest.TestCase):
         self.assertEqual("he", status["language"])
         self.assertTrue(status["session_id"].isascii())
         self.assertEqual("empty", status["beat"])
+        self.assertEqual("READY", status["authoring_status"])
+        self.assertEqual("NONE", status["proposal_status"])
+        self.assertEqual("WAIT_FOR_PROPOSAL", status["next_action"])
 
     def test_preview_reject_and_accept_use_candidate_then_canonical_source(self) -> None:
         with AuthoringFixture() as fixture, fake_manim_module():
@@ -63,6 +67,7 @@ class AuthoringSessionTests(unittest.TestCase):
             )
             canonical_after_preview = fixture.source_text("decks/story/scratch.py")
             rejected = controller.reject_proposal(session_id, proposal_id)
+            discovered_after_reject = controller.discover_active_proposal(session_id)
 
             second = services.propose_movie_step(
                 session_id,
@@ -88,7 +93,13 @@ class AuthoringSessionTests(unittest.TestCase):
         self.assertIn("dot = Dot(color=RED)", candidate_text)
         self.assertIn('self.beat("step_001"', candidate_text)
         self.assertEqual("empty", rejected["beat"])
+        self.assertIsNone(discovered_after_reject["active_proposal_id"])
+        self.assertEqual("NONE", discovered_after_reject["proposal_status"])
+        self.assertEqual("WAIT_FOR_PROPOSAL", discovered_after_reject["next_action"])
         self.assertEqual("accepted", accepted["status"])
+        self.assertEqual("READY", accepted["authoring_status"])
+        self.assertEqual("NONE", accepted["proposal_status"])
+        self.assertEqual("WAIT_FOR_PROPOSAL", accepted["next_action"])
         self.assertEqual("step_001", accepted["beat"])
         self.assertIn('self.beat("step_001"', canonical_final)
         self.assertIn('label = Text("point")', canonical_final)
@@ -119,11 +130,137 @@ class AuthoringSessionTests(unittest.TestCase):
             )
             preview = controller.preview_proposal(session_id, proposed["data"]["proposal_id"])
 
-        self.assertEqual("running", live["live_status"])
+        self.assertEqual("RUNNING", live["live_status"])
         self.assertEqual(2, len(fake_live.calls))
         self.assertEqual(fixture.root, fake_live.calls[0]["cwd"])
         self.assertNotEqual(fixture.root, fake_live.calls[1]["cwd"])
         self.assertEqual("step_001", preview["beat"])
+
+    def test_default_live_launch_does_not_create_new_windows_console(self) -> None:
+        with AuthoringFixture() as fixture:
+            controller = AuthoringSessionController(fixture.root, check_executables=False)
+            started = controller.start_session(
+                title="Story",
+                deck_id="story",
+                scene_id="scratch",
+                class_name="ScratchScene",
+            )
+            state = controller._load_state(started["session_id"])
+            plan = types.SimpleNamespace(cwd=fixture.root, env={})
+            kwargs = controller._live_process_kwargs(state, plan)
+            try:
+                if os.name == "nt":
+                    self.assertEqual(subprocess.CREATE_NO_WINDOW, kwargs.get("creationflags"))
+                    self.assertNotEqual(subprocess.CREATE_NEW_CONSOLE, kwargs.get("creationflags"))
+                self.assertEqual(subprocess.DEVNULL, kwargs["stdin"])
+                self.assertIn("live_stdout.log", str(kwargs["stdout"].name))
+                self.assertIn("live_stderr.log", str(kwargs["stderr"].name))
+            finally:
+                kwargs["stdout"].close()
+                kwargs["stderr"].close()
+
+    def test_semantic_append_inserts_inside_construct_before_helper_methods(self) -> None:
+        with AuthoringFixture() as fixture:
+            controller = fixture.controller()
+            started = controller.start_session(
+                title="Story",
+                deck_id="story",
+                scene_id="scratch",
+                class_name="ScratchScene",
+            )
+            source_path = fixture.root / "decks" / "story" / "scratch.py"
+            source_path.write_text(
+                "from manim import *\n\n"
+                "from manim_kit.beats import BeatMixin\n\n\n"
+                "class ScratchScene(BeatMixin, Scene):\n"
+                "    def construct(self):\n"
+                "        self.beat(\"empty\", label=\"Empty slate\")\n"
+                "        self.wait(0.1)\n\n"
+                "    def helper(self):\n"
+                "        self.wait(9)\n",
+                encoding="utf-8",
+            )
+
+            proposed = controller.propose_next_movie_step(
+                started["session_id"],
+                "title = Text(\"Vector Addition\")\nself.play(FadeIn(title))",
+                title="Show title",
+                rationale="append title",
+            )
+            preview = controller.preview_proposal(started["session_id"], proposed["active_proposal_id"])
+            candidate_text = Path(preview["source_root"], preview["source_path"]).read_text(encoding="utf-8")
+
+        self.assertIn('# <manim-studio-step id="step_001">', candidate_text)
+        self.assertLess(candidate_text.index("Vector Addition"), candidate_text.index("def helper"))
+        self.assertLess(candidate_text.index("Vector Addition"), candidate_text.index("self.wait(0.1)"))
+        self.assertIn('self.beat("step_001", label="Show title")', candidate_text)
+
+    def test_discover_revision_pause_resume_and_finish_flow(self) -> None:
+        with AuthoringFixture() as fixture, fake_manim_module():
+            controller = fixture.controller()
+            started = controller.start_session(
+                title="Story",
+                deck_id="story",
+                scene_id="scratch",
+                class_name="ScratchScene",
+            )
+            session_id = started["session_id"]
+            proposed = controller.propose_next_movie_step(
+                session_id,
+                "dot = Dot()\nself.add(dot)",
+                title="Add dot",
+            )
+            discovered = controller.discover_active_proposal(session_id)
+            preview = controller.preview_proposal(session_id)
+            revised = controller.revise_proposal(session_id, "להגביה את הכותרת")
+            replacement = controller.propose_next_movie_step(
+                session_id,
+                "dot = Dot()\nlabel = Text(\"point\")\nself.add(dot, label)",
+                title="Add dot and label",
+            )
+            paused = controller.pause_session(session_id)
+            resumed = controller.resume_session(session_id)
+            accepted = controller.accept_proposal(session_id, replacement["active_proposal_id"])
+            finished = controller.finish_session(session_id)
+
+        self.assertEqual(proposed["active_proposal_id"], discovered["active_proposal_id"])
+        self.assertEqual("PREVIEWED", preview["proposal_status"])
+        self.assertEqual("NEEDS_REVISION", revised["proposal_status"])
+        self.assertIn("להגביה", revised["revision_feedback"][0]["feedback"])
+        self.assertEqual("PAUSED", paused["authoring_status"])
+        self.assertEqual("RUNNING", resumed["live_status"])
+        self.assertEqual("READY", accepted["authoring_status"])
+        self.assertEqual("COMPLETED", finished["authoring_status"])
+        self.assertIsNotNone(finished["finish_build_id"])
+
+    def test_finish_render_failure_preserves_resumable_error_state(self) -> None:
+        with AuthoringFixture() as fixture, fake_manim_module():
+            controller = fixture.controller(render_runner=FakeRenderRunner(returncode=1, stderr="boom"))
+            started = controller.start_session(
+                title="Story",
+                deck_id="story",
+                scene_id="scratch",
+                class_name="ScratchScene",
+            )
+            failed = controller.finish_session(started["session_id"])
+
+        self.assertEqual("ERROR", failed["authoring_status"])
+        self.assertEqual("RETRY", failed["next_action"])
+        self.assertEqual("draft render failed", failed["last_error"])
+
+    def test_rpc_error_preserves_request_id(self) -> None:
+        with AuthoringFixture() as fixture:
+            controller = fixture.controller()
+            request = {"id": 7, "method": "missing_method", "params": {}}
+            response_id = None
+            try:
+                controller.dispatch(request["method"], request["params"])
+            except Exception as exc:  # noqa: BLE001 - mirrors rpc_loop error path without stdio plumbing.
+                response_id = request["id"]
+                payload = {"id": response_id, "ok": False, "error": {"message": str(exc)}}
+
+        self.assertEqual(7, payload["id"])
+        self.assertFalse(payload["ok"])
 
     def test_authoring_cli_start_and_status_json(self) -> None:
         with AuthoringFixture() as fixture:
@@ -165,6 +302,7 @@ class AuthoringSessionTests(unittest.TestCase):
         self.assertEqual(0, status_exit)
         self.assertEqual("he", status["language"])
         self.assertEqual("empty", status["beat"])
+        self.assertEqual("READY", status["authoring_status"])
 
 
 class AuthoringFixture:
@@ -183,11 +321,11 @@ class AuthoringFixture:
     def __exit__(self, exc_type, exc, traceback) -> None:
         self.tempdir.cleanup()
 
-    def controller(self, live_starter=None) -> AuthoringSessionController:
+    def controller(self, live_starter=None, render_runner=None) -> AuthoringSessionController:
         return AuthoringSessionController(
             self.root,
             live_starter=live_starter or FakeLiveStarter(),
-            render_runner=FakeRenderRunner(returncode=0),
+            render_runner=render_runner or FakeRenderRunner(returncode=0),
             check_executables=False,
         )
 

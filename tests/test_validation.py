@@ -4,6 +4,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from manim_studio.catalog import CatalogEntry
 from manim_studio.profiles import get_profile
@@ -121,6 +122,27 @@ class ScenePreflightValidationTests(unittest.TestCase):
 
         self.assertFalse(result.ok)
         self.assert_issue(result, "missing_renderer_executable")
+
+    def test_resolves_renderer_executable_from_current_python_directory(self) -> None:
+        with ValidationFixture() as fixture:
+            fixture.write_scene("scene.py", "class DemoScene:\n    pass\n")
+            scripts_dir = fixture.root / "venv" / "Scripts"
+            scripts_dir.mkdir(parents=True)
+            manim = scripts_dir / "manim.exe"
+            manim.write_text("", encoding="utf-8")
+
+            with mock.patch("manim_studio.validation.shutil.which", return_value=None), mock.patch(
+                "manim_studio.validation.sys.executable",
+                str(scripts_dir / "python.exe"),
+            ):
+                result = validate_scene_preflight(
+                    fixture.root,
+                    fixture.entry(),
+                    get_profile("draft"),
+                    check_executables=True,
+                )
+
+        self.assertTrue(result.ok, result.issues)
 
     def assert_issue(self, result, code: str) -> None:
         self.assertTrue(

@@ -1,0 +1,30 @@
+{
+  "accepted_steps": [
+    {
+      "accepted_at": "2026-08-10T08:15:24.564856+00:00",
+      "applied_checksum": "507f4a2360d6cb29eaf9e408684e0042a2aea5a26ec55040d19314cdc0cd537c",
+      "base_checksum": "dbcc42577798dadd846007d911ce7d09713404525c9640d7fd96e7a20e9f7a0c",
+      "beat_id": "step_001",
+      "diff": "--- a/decks/interactive/interactive-movie-2569dd.py\n+++ b/decks/interactive/interactive-movie-2569dd.py\n@@ -6,4 +6,11 @@\n class InteractiveMovieScene(BeatMixin, Scene):\n     def construct(self):\n         self.beat(\"empty\", label=\"Empty slate\")\n+        # <manim-studio-step id=\"step_001\">\n+        dot = Dot(color=RED, radius=0.18)\n+        self.play(FadeIn(dot), run_time=0.4)\n+        self.play(dot.animate.scale(2), run_time=0.8)\n+        self.wait(0.3)\n+        self.beat(\"step_001\", label=\"Red dot grows 2x\")\n+        # </manim-studio-step>\n         self.wait(0.1)\n",
+      "note": "",
+      "proposal_id": "20260810-080311-patch-interactive-interactive-movie-2569dd-80964602",
+      "rationale": "Add a red dot that appears and scales up by a factor of two.",
+      "step": 1
+    }
+  ],
+  "class_name": "InteractiveMovieScene",
+  "created_at": "2026-08-10T08:01:54.374690+00:00",
+  "deck_id": "interactive",
+  "language": "en",
+  "live": {
+    "beat_id": "step_001",
+    "command": "studio live interactive/interactive-movie-2569dd --beat step_001 --diagnose"
+  },
+  "scene_id": "interactive-movie-2569dd",
+  "session_id": "interactive-interactive-movie-2569dd-01638b9b",
+  "source_path": "decks/interactive/interactive-movie-2569dd.py",
+  "steps_path": "decks/interactive/interactive-movie-2569dd.steps.json",
+  "target": "interactive/interactive-movie-2569dd",
+  "title": "Interactive Movie",
+  "updated_at": "2026-08-10T08:15:24.564856+00:00"
+}

@@ -515,6 +515,14 @@ def get_movie_session(
     return success(data)
 
 
+def list_authoring_sessions(context: StudioContext | None = None) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).list_sessions())
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
 def propose_movie_step(
     session_id: str,
     edits: list[dict[str, Any]],
@@ -540,6 +548,28 @@ def propose_movie_step(
     return success(data, status="proposed")
 
 
+def propose_next_movie_step(
+    session_id: str,
+    body: str,
+    title: str = "Next step",
+    rationale: str = "",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).propose_next_movie_step(
+            session_id,
+            body,
+            title=title,
+            rationale=rationale,
+        )
+    except (movie_sessions.MovieSessionError, staged_edits.StagedEditError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    except (SyntaxError, OSError) as exc:
+        return failure("validation_failed", "next movie step could not be proposed", detail=str(exc))
+    return success(data, status="proposed")
+
+
 def get_authoring_session_status(
     session_id: str,
     context: StudioContext | None = None,
@@ -551,9 +581,20 @@ def get_authoring_session_status(
         return _authoring_error(exc)
 
 
+def discover_active_proposal(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).discover_active_proposal(session_id))
+    except (movie_sessions.MovieSessionError, staged_edits.StagedEditError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
 def preview_movie_step(
     session_id: str,
-    proposal_id: str,
+    proposal_id: str | None = None,
     context: StudioContext | None = None,
 ) -> dict[str, Any]:
     ctx = context or default_context()
@@ -568,7 +609,7 @@ def preview_movie_step(
 
 def accept_movie_step(
     session_id: str,
-    proposal_id: str,
+    proposal_id: str | None = None,
     note: str = "",
     confirm: str = "accept",
     context: StudioContext | None = None,
@@ -601,6 +642,54 @@ def reject_movie_step(
     except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
         return _authoring_error(exc)
     return success(data, status="rejected")
+
+
+def revise_movie_step(
+    session_id: str,
+    feedback: str,
+    proposal_id: str | None = None,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).revise_proposal(session_id, feedback, proposal_id)
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    return success(data, status="revision_requested")
+
+
+def pause_authoring_session(
+    session_id: str,
+    proposal_policy: str = "keep",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).pause_session(session_id, proposal_policy))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+def resume_authoring_session(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).resume_session(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+def finish_authoring_session(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).finish_session(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
 
 
 def start_authoring_live(session_id: str, context: StudioContext | None = None) -> dict[str, Any]:

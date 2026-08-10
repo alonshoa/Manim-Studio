@@ -208,7 +208,7 @@ def render_scene_patch(
     metadata = _load_metadata(repo_root, builds_root, proposal_id)
     workspace_dir = _workspace_dir_from_metadata(metadata)
     entry = _entry_from_metadata(metadata)
-    proposal_builds = _proposal_dir(repo_root, builds_root, proposal_id) / "builds"
+    proposal_builds = _staged_render_root(repo_root, builds_root, proposal_id)
     build = render_scene(
         workspace_dir,
         entry,
@@ -294,6 +294,20 @@ def apply_scene_patch(
         "applied_checksum": _sha256_text(patched),
     }
     _write_metadata(_proposal_dir(root, builds_root, proposal_id), metadata)
+    return _public_metadata(metadata)
+
+
+def reject_scene_patch(
+    repo_root: Path | str,
+    builds_root: Path | str,
+    proposal_id: str,
+) -> dict[str, Any]:
+    metadata = _load_metadata(repo_root, builds_root, proposal_id)
+    metadata["applied"] = {
+        "status": "rejected",
+        "rejected_at": _utc_now(),
+    }
+    _write_metadata(_proposal_dir(repo_root, builds_root, proposal_id), metadata)
     return _public_metadata(metadata)
 
 
@@ -513,6 +527,11 @@ def _workspace_dir_from_metadata(metadata: dict[str, Any]) -> Path:
 
 def _proposal_dir(repo_root: Path | str, builds_root: Path | str, proposal_id: str) -> Path:
     return _staged_root(repo_root, builds_root) / proposal_id
+
+
+def _staged_render_root(repo_root: Path | str, builds_root: Path | str, proposal_id: str) -> Path:
+    digest = hashlib.sha256(proposal_id.encode("utf-8")).hexdigest()[:10]
+    return _staged_root(repo_root, builds_root) / "_r" / digest
 
 
 def _staged_root(repo_root: Path | str, builds_root: Path | str) -> Path:

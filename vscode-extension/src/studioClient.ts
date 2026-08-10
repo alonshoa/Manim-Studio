@@ -10,6 +10,7 @@ export type RpcResponse = {
 type PendingRequest = {
   resolve: (value: RpcResponse) => void;
   reject: (reason?: unknown) => void;
+  timer: NodeJS.Timeout;
 };
 
 export function buildRpcArgs(repoRoot: string, catalog = "catalog/scenes.yaml"): string[] {
@@ -26,6 +27,7 @@ export class StudioRpcClient {
     private readonly studioExecutable: string,
     private readonly catalog = "catalog/scenes.yaml",
     private readonly log: (message: string) => void = () => undefined,
+    private readonly requestTimeoutMs = 30000,
   ) {}
 
   start(): void {
@@ -42,6 +44,7 @@ export class StudioRpcClient {
       this.log(`studio authoring rpc failed to start: ${error.message}`);
       this.process = undefined;
       for (const request of this.pending.values()) {
+        clearTimeout(request.timer);
         request.reject(error);
       }
       this.pending.clear();
@@ -50,6 +53,7 @@ export class StudioRpcClient {
       this.log(`studio authoring rpc exited: ${code}`);
       this.process = undefined;
       for (const request of this.pending.values()) {
+        clearTimeout(request.timer);
         request.reject(new Error("studio authoring rpc exited"));
       }
       this.pending.clear();
@@ -64,9 +68,23 @@ export class StudioRpcClient {
     const id = this.nextId++;
     const payload = JSON.stringify({ id, method, params });
     const result = new Promise<RpcResponse>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`studio authoring rpc timed out after ${this.requestTimeoutMs}ms: ${method}`));
+      }, this.requestTimeoutMs);
+      this.pending.set(id, { resolve, reject, timer });
     });
-    this.process.stdin.write(`${payload}\n`);
+    this.process.stdin.write(`${payload}\n`, (error) => {
+      if (!error) {
+        return;
+      }
+      const pending = this.pending.get(id);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.pending.delete(id);
+        pending.reject(error);
+      }
+    });
     return result;
   }
 
@@ -74,6 +92,11 @@ export class StudioRpcClient {
     if (!this.process) {
       return;
     }
+    for (const request of this.pending.values()) {
+      clearTimeout(request.timer);
+      request.reject(new Error("studio authoring rpc disposed"));
+    }
+    this.pending.clear();
     this.process.kill();
     this.process = undefined;
   }
@@ -85,9 +108,11 @@ export class StudioRpcClient {
       response = JSON.parse(line);
     } catch (error) {
       this.log(`invalid Studio response: ${String(error)}`);
+      this.rejectAll(new Error("studio authoring rpc returned malformed JSON"));
       return;
     }
     if (typeof response.id !== "number") {
+      this.log("invalid Studio response: missing numeric id");
       return;
     }
     const pending = this.pending.get(response.id);
@@ -95,6 +120,15 @@ export class StudioRpcClient {
       return;
     }
     this.pending.delete(response.id);
+    clearTimeout(pending.timer);
     pending.resolve({ ok: Boolean(response.ok), data: response.data, error: response.error });
+  }
+
+  private rejectAll(error: Error): void {
+    for (const request of this.pending.values()) {
+      clearTimeout(request.timer);
+      request.reject(error);
+    }
+    this.pending.clear();
   }
 }

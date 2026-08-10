@@ -11,11 +11,16 @@ Persisted state is stored under `.manim-studio/authoring/<session-id>/` and
 tracks:
 
 - session and target identity
+- `authoring_status`: `READY`, `DECISION_REQUIRED`, `PAUSED`, `FINISHING`,
+  `COMPLETED`, or `ERROR`
+- `proposal_status`: `NONE`, `PROPOSED`, `PREVIEWED`, or `NEEDS_REVISION`
+- `live_status`: `STOPPED`, `STARTING`, `RUNNING`, `RELOADING`, or `FAILED`
 - canonical source and candidate preview source
-- active proposal ID
+- active proposal ID, when a proposal is waiting or previewed
 - working and preview revisions
 - current accepted or candidate beat
 - live status, live process ID, and last concise error
+- computed `next_action`, used by thin clients for context-sensitive commands
 
 ## Source Selection
 
@@ -34,6 +39,17 @@ live preview to the canonical source.
 
 Rejecting clears the active proposal and returns live preview to the last
 accepted canonical revision.
+
+Revision is a distinct decision. Studio stores the UTF-8 feedback, returns live
+preview to the last accepted source, skips the revised proposal during
+discovery, and waits for Codex/MCP to create a replacement proposal against the
+same accepted revision.
+
+The semantic default proposal path is `propose_next_movie_step`. It accepts a
+Python body plus title/rationale, then Studio determines the next `step_NNN`,
+insertion point inside the registered scene class's `construct()` method, beat
+call, and staged candidate source. The canonical source is still unchanged until
+acceptance.
 
 ## Beats
 
@@ -62,3 +78,8 @@ Manim command construction in Python.
 
 This milestone supports local desktop VS Code with local Python. WSL,
 devcontainers, and remote workspaces are experimental.
+
+Existing checked-in sessions under `decks/test-movie`,
+`decks/interactive-vsc`, and `decks/interactive/interactive-vstest-bfd60b`
+appear to be manual smoke-test artifacts. They should be reviewed before a
+future PR cleanup, but this workflow does not delete or rewrite them.

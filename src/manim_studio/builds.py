@@ -68,7 +68,7 @@ class ExportDeckError(Exception):
 
 def create_build_id(kind: str, target: str, now: datetime | None = None) -> str:
     timestamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%d-%H%M%S")
-    slug = _slugify(target.replace("/", "-"))
+    slug = _slugify(target.replace("/", "-"))[:24].strip("-") or "build"
     return f"{timestamp}-{kind}-{slug}-{uuid4().hex[:8]}"
 
 
@@ -731,11 +731,15 @@ def _run_logged_command(
     if existing_pythonpath:
         pythonpath_parts.append(existing_pythonpath)
     env["PYTHONPATH"] = os.pathsep.join(pythonpath_parts)
+    executable_dir = str(Path(sys.executable).resolve().parent)
+    existing_path = env.get("PATH", "")
+    env["PATH"] = executable_dir if not existing_path else os.pathsep.join([executable_dir, existing_path])
     if beat_id is not None:
         env["MANIM_STUDIO_BEAT"] = beat_id
+    resolved_command = _resolve_command_for_subprocess(command, env) if runner is subprocess.run else list(command)
     try:
         completed = runner(
-            list(command),
+            resolved_command,
             cwd=cwd,
             check=False,
             capture_output=True,
@@ -752,13 +756,21 @@ def _run_logged_command(
     stdout_path.write_text(stdout, encoding="utf-8")
     stderr_path.write_text(stderr, encoding="utf-8")
     return {
-        "command": list(command),
+        "command": resolved_command,
         "returncode": returncode,
         "stdout_log": stdout_path.name,
         "stderr_log": stderr_path.name,
         "stdout": stdout,
         "stderr": stderr,
     }
+
+
+def _resolve_command_for_subprocess(command: Sequence[str], env: dict[str, str]) -> list[str]:
+    resolved = list(command)
+    executable = shutil.which(resolved[0], path=env.get("PATH"))
+    if executable is not None:
+        resolved[0] = executable
+    return resolved
 
 
 def _generate_review_artifacts(

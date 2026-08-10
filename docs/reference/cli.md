@@ -189,11 +189,18 @@ the VS Code extension.
 
 ```bash
 studio authoring start --title "Vector Movie" --deck-id vector_movie
+studio authoring list
 studio authoring status <session-id>
+studio authoring append <session-id> --title "Show title" --body "title = Text('Vector')"
+studio authoring discover <session-id>
 studio authoring live-start <session-id>
-studio authoring preview <session-id> <proposal-id>
-studio authoring accept <session-id> <proposal-id> --confirm accept
+studio authoring preview <session-id> [proposal-id]
+studio authoring accept <session-id> [proposal-id] --confirm accept
 studio authoring reject <session-id> [proposal-id]
+studio authoring revise <session-id> --feedback "Move the title higher" [proposal-id]
+studio authoring pause <session-id>
+studio authoring resume <session-id>
+studio authoring finish <session-id>
 studio authoring live-restart <session-id>
 studio authoring live-stop <session-id>
 ```

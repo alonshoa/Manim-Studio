@@ -8,14 +8,22 @@ const commands = manifest.contributes.commands.map((command) => command.command)
 
 assert.deepStrictEqual(commands.sort(), [
   "manimStudio.acceptActiveProposal",
+  "manimStudio.continueAuthoring",
+  "manimStudio.finishSession",
+  "manimStudio.pauseSession",
   "manimStudio.previewActiveProposal",
   "manimStudio.rejectActiveProposal",
+  "manimStudio.resumeLastSession",
+  "manimStudio.reviseActiveProposal",
   "manimStudio.restartLivePreview",
   "manimStudio.showSessionStatus",
   "manimStudio.startAuthoringSession",
   "manimStudio.startLivePreview",
   "manimStudio.stopLivePreview",
+  "manimStudio.switchActiveSession",
 ].sort());
 
 assert(manifest.activationEvents.every((event) => event.startsWith("onCommand:manimStudio.")));
+assert.strictEqual(manifest.contributes.configuration.properties["manimStudio.requestTimeoutMs"].default, 30000);
+assert(!("manimStudio.lastSessionId" in manifest.contributes.configuration.properties));
 console.log("extension manifest ok");
