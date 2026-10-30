@@ -14,7 +14,7 @@ $miktex = Resolve-Tool 'miktex.exe'
 Invoke-Checked $initexmf @('--set-config-value', '[MPM]AutoInstall=1')
 Invoke-Checked $miktex @('packages', 'update-package-database')
 Invoke-Checked $miktex @('packages', 'update')
-Invoke-Checked $miktex @('packages', 'install', 'standalone', 'preview', 'amsmath', 'amsfonts', 'xcolor', 'fontspec', 'polyglossia', 'bidi')
+Ensure-TeXPackages $miktex (Resolve-Tool 'kpsewhich.exe')
 Invoke-Checked $initexmf @('--update-fndb')
 Install-StudioFonts $cache
 Invoke-Checked $python @('-m', 'pip', 'install', '--prefer-binary', '--only-binary=pycairo,manimpango', '-e', '.[dev]')

@@ -54,6 +54,24 @@ try {
     try { Initialize-Checkout 'git' $root 'research/prompt-logging' }
     catch { $failed = $true }
     Assert-SetupTest $failed 'Non-Git destination was accepted'
+    # MiKTeX rejects installing an already-installed package; reruns must skip it.
+    $global:SetupTestTeXFiles = @{}
+    $global:SetupTestTeXInstalls = @()
+    function Fake-TeXLookup([string]$File) {
+        if ($global:SetupTestTeXFiles.ContainsKey($File)) { $global:LASTEXITCODE = 0; return "C:/tex/$File" }
+        $global:LASTEXITCODE = 1
+    }
+    function Fake-TeXInstall {
+        $id = $args[2]
+        $global:SetupTestTeXInstalls += $id
+        $file = $(if ($id -eq 'standalone') { 'standalone.cls' } elseif ($id -eq 'amsfonts') { 'amssymb.sty' } else { "$id.sty" })
+        $global:SetupTestTeXFiles[$file] = $true
+        $global:LASTEXITCODE = 0
+    }
+    Ensure-TeXPackages 'Fake-TeXInstall' 'Fake-TeXLookup'
+    $count = $global:SetupTestTeXInstalls.Count
+    Ensure-TeXPackages 'Fake-TeXInstall' 'Fake-TeXLookup'
+    Assert-SetupTest ($count -eq 8 -and $global:SetupTestTeXInstalls.Count -eq 8) 'TeX rerun attempted duplicate package installs'
     Write-Host 'Windows setup parser, generated configuration, backup, reboot and error tests passed.'
     # The deliberately failed fake installer must not leak a nonzero CI process exit.
     $global:LASTEXITCODE = 0

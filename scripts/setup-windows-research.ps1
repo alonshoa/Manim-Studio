@@ -117,6 +117,23 @@ function Set-GeneratedFile {
     Write-Utf8 $Path $Text
 }
 
+function Ensure-TeXPackages {
+    param([string]$Miktex, [string]$Lookup = 'kpsewhich.exe')
+    $packages = @(
+        @{ Id = 'standalone'; File = 'standalone.cls' }, @{ Id = 'preview'; File = 'preview.sty' },
+        @{ Id = 'amsmath'; File = 'amsmath.sty' }, @{ Id = 'amsfonts'; File = 'amssymb.sty' },
+        @{ Id = 'xcolor'; File = 'xcolor.sty' }, @{ Id = 'fontspec'; File = 'fontspec.sty' },
+        @{ Id = 'polyglossia'; File = 'polyglossia.sty' }, @{ Id = 'bidi'; File = 'bidi.sty' }
+    )
+    foreach ($package in $packages) {
+        $found = (& $Lookup $package.File | Out-String).Trim()
+        if ($LASTEXITCODE -eq 0 -and $found) { continue }
+        Invoke-Checked $Miktex @('packages', 'install', $package.Id)
+        $found = (& $Lookup $package.File | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or -not $found) { throw "TeX package is still unavailable: $($package.Id)" }
+    }
+}
+
 function Install-StudioFonts {
     param([string]$Cache)
     $archive = Join-Path $Cache 'dejavu-fonts-ttf-2.37.zip'
@@ -316,7 +333,7 @@ function Install-ResearchWorkstation {
         Invoke-Checked $initexmf @('--set-config-value', '[MPM]AutoInstall=1')
         Invoke-Checked $miktex @('packages', 'update-package-database')
         Invoke-Checked $miktex @('packages', 'update')
-        Invoke-Checked $miktex @('packages', 'install', 'standalone', 'preview', 'amsmath', 'amsfonts', 'xcolor', 'fontspec', 'polyglossia', 'bidi')
+        Ensure-TeXPackages $miktex (Resolve-Tool 'kpsewhich.exe')
         Invoke-Checked $initexmf @('--update-fndb')
         foreach ($tool in @('latex.exe', 'xelatex.exe', 'dvisvgm.exe')) { Resolve-Tool $tool | Out-Null }
         Install-StudioFonts $cache
