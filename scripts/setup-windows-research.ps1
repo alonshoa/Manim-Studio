@@ -410,7 +410,7 @@ class SetupSmoke(Scene):
 }
 
 if ($MyInvocation.InvocationName -ne '.') {
-    try { Install-ResearchWorkstation }
+    try { Install-ResearchWorkstation; exit 0 }
     catch [System.OperationCanceledException] { Write-Warning $_.Exception.Message; exit 3010 }
     catch { Write-Error $_; exit 1 }
 }

@@ -55,4 +55,6 @@ try {
     catch { $failed = $true }
     Assert-SetupTest $failed 'Non-Git destination was accepted'
     Write-Host 'Windows setup parser, generated configuration, backup, reboot and error tests passed.'
+    # The deliberately failed fake installer must not leak a nonzero CI process exit.
+    $global:LASTEXITCODE = 0
 } finally { Remove-Item -LiteralPath $root -Recurse -Force }
