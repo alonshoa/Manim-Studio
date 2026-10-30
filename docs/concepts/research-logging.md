@@ -1,4 +1,4 @@
-# Research logging (v1)
+# Research logging
 
 This is collection infrastructure for the Human-in-the-loop study. It does not
 choose adaptive checkpoints, score pedagogical quality, or equate a user's stated
@@ -15,16 +15,107 @@ reason with measured improvement. Existing authoring behavior stays unchanged.
 - `studio-research` / `python -m manim_studio.research_cli`: JSON stdin bridge for hosts
   and retrospective labeling. No dialogs, automatic LLM calls or extra dependency.
 
-**External chat is not observable by this server.** The LLM client must submit each
-user prompt and model response to the bridge, including planning-only turns that
-invoke no Manim tool. Without that host adapter, this is a partial tool-operation
-trace, not a complete research conversation. Never infer a prompt from tool arguments.
+**MCP alone cannot observe external chat.** The optional Codex adapter below receives
+client hooks, including planning-only turns that invoke no Manim tool. Other clients
+must still submit prompts/responses to the bridge. Never infer prompts from tool arguments.
 There is no built-in automatic classification model or VS Code classification UI yet.
 Use the bridge for manual labeling or to submit host-generated suggestions.
 
+## Automatic Codex capture
+
+The passive adapter uses Codex's documented [hooks](https://developers.openai.com/codex/hooks):
+`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `Interrupt`,
+`SessionEnd`, `PreCompact`, and `PostCompact`. It does not create a new chat UI,
+call a model, change tool arguments/permissions, or inject text into model context.
+Normal hook output is `{}`. Failures warn on stderr and return success so authoring
+continues. A failed hook is a collection gap, not evidence that collection succeeded.
+
+From the selected project, run once with the Python interpreter that has Studio:
+
+```bash
+python -m manim_studio.research_cli --root /path/to/project codex-connect
+```
+
+This explicitly enables local logging and merges this adapter's handlers into
+`.codex/hooks.json`, preserving unrelated hooks. Repeating it replaces only this
+adapter's marked handlers. The generated configuration uses machine-specific absolute
+paths and is gitignored. Existing `.codex/config.toml` is untouched. To inspect
+configuration without changing anything, use `codex-config` instead.
+
+Review/trust the hook definitions in Codex (the CLI provides `/hooks`), then start or
+resume the conversation. A connected project alone does not prove that the client
+delivers hooks: confirm your actual CLI/IDE release by sending a planning-only prompt,
+then checking:
+
+```bash
+python -m manim_studio.research_cli --root /path/to/project capture-status
+```
+
+Status lists observed thread/research-session IDs, last hook time, transcript byte
+offset and gap count. No observed threads means capture has not been demonstrated.
+Only hooks whose `cwd` belongs to this project are accepted. Each Codex thread maps
+durably to a separate research session; no global last-prompt context is used.
+
+The supported hook contract provides user prompts, tool calls/results, and the latest
+assistant message at `Stop`. Intermediate assistant messages are additionally read
+from the explicitly supplied transcript. Its format is **not a stable Codex API**.
+The reader supports JSONL `session_meta`, `turn_context`, and `response_item` messages;
+it ignores duplicated `event_msg` text, internal reasoning, system/developer content
+and unrelated metadata. Non-text assistant content is flagged as unsupported, not
+silently converted. It never searches all Codex histories or reads authentication files.
+
+Coverage status is deliberately conservative:
+
+| Status | Meaning |
+|---|---|
+| `hooks_only` | Hooks observed; intermediate-message coverage is unverified |
+| `hooks_and_transcript_best_effort` | Recognized transcript dialect, no detected gaps; not a guarantee of completeness |
+| `partial` | A gap, unknown format, missing context or unsupported record was detected |
+
+User prompts retain null classification. A prompt submission is client-reported user
+input, not independent proof of human authorship; other Codex hooks can generate
+continuation prompts. Model/provider/client information uses an allowlist of supplied
+fields; unavailable revision/settings are not guessed. No hidden chain of thought is
+collected. Source metadata includes client/thread/turn/item or tool-call identifiers,
+source timestamps when available, and transcript byte offsets. Ledger timestamps are
+observation times; transcript offsets define source order, not causal relationships.
+
+Tool hooks record their own `action.started`/`action.finished` boundary with snapshots.
+The start's prompt association is retained even if the user steers while it runs.
+With multiple submissions in a turn, events carry `related_prompt_ids` as turn
+membership and leave the causal `prompt_id` null when ambiguous. Missing tool starts
+are flagged. This does not retroactively join separate inner service events: if MCP/RPC
+instrumentation is also enabled, it may record nested/duplicate work. Use the `source`
+field to select a boundary for analysis; do not count both or sum overlapping durations.
+Hook durations are observation wall-clock differences, explicitly labeled; they are
+neither human active time nor the core service's monotonic execution time.
+
+Events, deduplication receipts and transcript cursors commit in one SQLite transaction.
+Incomplete trailing JSON/UTF-8 waits for a newline. Transcript replay and repeated
+tool-call IDs do not duplicate messages/actions. Hosts retrying `CodexCapture.handle`
+can pass a stable `delivery_id`; native hooks provide no delivery ID, so repeated
+identical user submissions are deliberately kept, rather than text-deduplicated.
+This cannot distinguish an undocumented duplicate native prompt delivery from a
+second genuine identical submission.
+
+`configure` with `{"enabled":false}` pauses collection. On re-enable, the adapter
+skips to the transcript's current end and marks the gap, so content produced during
+the pause is never backfilled. This can also omit buffered messages around resumption;
+that loss is explicit. A first attachment to an existing/resumed conversation likewise
+does not import its old history. File replacement/truncation invalidates the cursor
+and marks a gap. Full content export includes captured messages/actions; default
+metadata export retains source IDs and gap codes but excludes their free text.
+
+Run `PYTHONPATH=src python -m pytest tests/test_research_capture.py tests/test_research.py -q`.
+An optional native-client smoke test is in `scripts/test-codex-capture.py`; it supplies
+a local fake model, uses only a temporary project, and makes no paid inference calls.
+Real interactive VS Code delivery and Windows hook invocation still need validation
+on their actual client versions before research collection.
+
 MCP operations and the authoring RPC boundary are instrumented. Direct Python calls
-to core builders and ordinary `studio render` CLI commands bypass those boundaries;
-these are not captured automatically. Direct editor changes appear at the next
+to core builders and ordinary `studio render` CLI commands bypass those boundaries.
+When Codex invokes them through a hooked tool, the outer tool call is captured;
+manual terminal commands outside that client are not. Direct editor changes appear at the next
 snapshot boundary, without an inferred edit timestamp or author. A custom catalog
 path or source outside the documented snapshot scope needs a later explicit adapter.
 
@@ -116,7 +207,7 @@ content collection; pausing mid-action may leave a start without a finish. A cra
 logging failure may also leave an incomplete action. Instrumentation warnings go to
 stderr, never the JSON-RPC stdout protocol. They indicate a collection gap.
 
-Each event has schema version (v1 in session/export), durable project ID (config/export),
+Each event has schema version (v2 in new session/export records), durable project ID (config/export),
 UUID event/session IDs, optional prompt and parent IDs, UTC timestamp, actor, stage,
 payload and SQLite sequence number. Sequence defines ledger insertion order; concurrent
 operations can overlap. Event types:
@@ -130,6 +221,12 @@ operations can overlap. Event types:
 | `classification.confirmed` | Human-supplied type/reasons and optional self-reported time |
 | `action.started` | Operation, arguments, before snapshot |
 | `action.finished` | Result or exception, elapsed seconds, after snapshot; parent=start ID |
+| `capture.gap` | Machine-readable gap code and source context |
+| `client.*` | Observed session, turn, interruption and compaction lifecycle |
+
+The v2 adapter adds `capture_threads` (thread mapping/state/cursor) and
+`capture_receipts` (source deduplication) tables without rewriting v1 events. Capture
+pause epochs live in `config`. Existing v1 sessions remain readable/exportable.
 
 Actions are system execution events. An operation named `accept` does not establish
 that a human made the decision. Prompts/classifications record their declared source;
@@ -162,6 +259,14 @@ Tests exercise persistence/concurrent writers, invalid/cross-session links, sepa
 classifications, null values, pause/resume, source recovery/deletion, symlink/size
 omissions, metadata export, MCP/RPC request association and fail-open behavior.
 Run `PYTHONPATH=src python -m pytest tests/test_research.py -q`.
+
+Local development validation (2026-10-30): 93 tests passed across research capture,
+the existing ledger, MCP services, authoring sessions, CLI and font checks. This includes
+34 new capture tests and generated hook execution through a real Python subprocess.
+The optional native Codex 0.166.0 smoke test timed out during session initialization,
+before the first hook or local fake-model request. Native-client end-to-end capture
+has therefore **not** passed validation here; interactive VS Code and Windows delivery
+remain unverified. Do not treat fixture/subprocess tests as proof of complete native capture.
 
 Before collecting the 8–10 development workflows, connect and validate the external
 host's prompt/response adapter on a complete small workflow, including a planning-only

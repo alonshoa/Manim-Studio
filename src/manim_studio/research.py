@@ -14,7 +14,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 PROMPT_TYPES = ('initial', 'continuation', 'corrective', 'irrelevant')
 REASONS = ('factual_math', 'narrative_order', 'unclear_explanation', 'add_content',
            'remove_content', 'visual_animation', 'intent_mismatch', 'technical_render', 'other')
@@ -67,6 +67,11 @@ class ResearchLog:
         if not isinstance(enabled, bool):
             raise ValueError('enabled must be a boolean')
         with self.connection() as db:
+            previous = db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()
+            if previous is None or previous[0] != ('true' if enabled else 'false'):
+                # Capture adapters must not backfill content produced while paused.
+                db.execute("INSERT INTO config VALUES ('capture_epoch','1') ON CONFLICT(key) "
+                           "DO UPDATE SET value=CAST(value AS INTEGER)+1")
             for key, value in [('enabled', 'true' if enabled else 'false')]:
                 db.execute('INSERT OR REPLACE INTO config VALUES (?, ?)', (key, value))
             if db.execute("SELECT 1 FROM config WHERE key='project_id'").fetchone() is None:
@@ -234,7 +239,8 @@ class ResearchLog:
                 if not include_content:
                     event['payload'] = {k: v for k, v in event['payload'].items() if k in
                         ('schema_version', 'studio_version', 'prompt_type', 'reasons',
-                         'human_seconds', 'time_source', 'name', 'duration_seconds', 'state')}
+                         'human_seconds', 'time_source', 'name', 'duration_seconds', 'state',
+                         'source', 'related_prompt_ids', 'capture_status', 'code', 'status')}
                 records.append(event)
             if include_content:
                 import base64

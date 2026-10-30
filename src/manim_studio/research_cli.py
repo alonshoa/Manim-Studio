@@ -21,6 +21,14 @@ def dispatch(root: Path, action: str, payload: dict):
         return {'prompt_types': PROMPT_TYPES, 'reasons': REASONS, 'stages': STAGES}
     if action == 'status':
         return {'enabled': log.enabled}
+    if action in ('codex-connect', 'codex-config', 'capture-status', 'codex-hook'):
+        from manim_studio.research_capture import CodexCapture, connect, hook_config
+        if action == 'codex-connect':
+            return connect(root)
+        if action == 'codex-config':
+            return hook_config(root)
+        capture = CodexCapture(root)
+        return capture.status() if action == 'capture-status' else capture.handle(payload)
     if action not in operations:
         raise ValueError('unknown research action')
     return operations[action](**payload)
@@ -30,12 +38,23 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('action', choices=['configure', 'start_session', 'record_prompt',
-                                         'record_response', 'classify', 'export', 'schema', 'status'])
+                                         'record_response', 'classify', 'export', 'schema', 'status',
+                                         'codex-connect', 'codex-config', 'codex-hook', 'capture-status'])
     args = parser.parse_args()
     try:
-        payload = json.load(sys.stdin) if args.action not in ('schema', 'status') else {}
-        print(json.dumps({'ok': True, 'data': dispatch(args.root, args.action, payload)}, ensure_ascii=False))
-    except (ValueError, TypeError, OSError) as exc:
+        payload = json.load(sys.stdin) if args.action not in (
+            'schema', 'status', 'codex-connect', 'codex-config', 'capture-status') else {}
+        result = dispatch(args.root, args.action, payload)
+        # Hook output must never become model context, deny tools, or continue a turn.
+        print(json.dumps({} if args.action == 'codex-hook' else {'ok': True, 'data': result},
+                         ensure_ascii=False))
+    except Exception as exc:
+        if args.action == 'codex-hook':
+            # Keep Codex working even on malformed input/disk failure. No payload text.
+            print('{}')
+            print(f'Manim Studio research capture failed ({type(exc).__name__}); '
+                  'this invocation was not collected. Check capture-status.', file=sys.stderr)
+            return
         print(json.dumps({'ok': False, 'error': str(exc)}))
         raise SystemExit(1)
 
