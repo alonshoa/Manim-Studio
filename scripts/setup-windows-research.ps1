@@ -139,7 +139,7 @@ function Install-StudioFonts {
     $archive = Join-Path $Cache 'dejavu-fonts-ttf-2.37.zip'
     $expected = '7576310b219e04159d35ff61dd4a4ec4cdba4f35c00e002a136f00e96a908b0a'
     if (-not (Test-Path -LiteralPath $archive)) {
-        Invoke-WebRequest -UseBasicParsing -Uri 'https://downloads.sourceforge.net/project/dejavu/dejavu/2.37/dejavu-fonts-ttf-2.37.zip' -OutFile $archive
+        Invoke-WebRequest -UseBasicParsing -Uri 'https://github.com/dejavu-fonts/dejavu-fonts/releases/download/version_2_37/dejavu-fonts-ttf-2.37.zip' -OutFile $archive
     }
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expected) {
         throw "DejaVu font archive checksum mismatch. Remove $archive and rerun."
