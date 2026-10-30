@@ -28,6 +28,7 @@ export class StudioRpcClient {
     private readonly catalog = "catalog/scenes.yaml",
     private readonly log: (message: string) => void = () => undefined,
     private readonly requestTimeoutMs = 30000,
+    private readonly environment: NodeJS.ProcessEnv = {},
   ) {}
 
   start(): void {
@@ -35,7 +36,7 @@ export class StudioRpcClient {
       return;
     }
     const args = buildRpcArgs(this.repoRoot, this.catalog);
-    this.process = spawn(this.studioExecutable, args, { cwd: this.repoRoot });
+    this.process = spawn(this.studioExecutable, args, { cwd: this.repoRoot, env: { ...process.env, ...this.environment } });
     this.log(`${this.studioExecutable} ${args.join(" ")}`);
     const reader = readline.createInterface({ input: this.process.stdout });
     reader.on("line", (line) => this.handleLine(line));

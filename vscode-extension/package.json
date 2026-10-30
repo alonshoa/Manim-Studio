@@ -72,6 +72,15 @@
           "type": "boolean",
           "default": true,
           "description": "Open the Manim Studio integrated terminal once when starting or resuming an authoring session."
+        },
+        "manimStudio.processEnv": {
+          "type": "object",
+          "default": {},
+          "additionalProperties": {
+            "type": "string"
+          },
+          "scope": "resource",
+          "description": "Environment overrides for the local Studio RPC process, including PATH and optional research session ID. Restart the extension after changing."
         }
       }
     },
@@ -154,5 +163,11 @@
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.90.0",
     "typescript": "^5.5.0"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/alonshoa/Manim-Studio.git",
+    "directory": "vscode-extension"
   }
 }

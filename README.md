@@ -176,3 +176,5 @@ Still planned or intentionally unsupported:
 Optional local prompt/response and action logging, retrospective classification and
 JSONL export: [research logging v1](docs/concepts/research-logging.md).
 External chat clients must explicitly supply prompts and responses to the bridge.
+
+Clean Windows machine: [research workstation setup](docs/getting-started/windows-research-setup.md).

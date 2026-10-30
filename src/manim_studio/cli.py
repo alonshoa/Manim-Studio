@@ -85,6 +85,19 @@ def _check_command(name: str, command: Sequence[str], fix: str) -> CheckResult:
 
 
 def _check_hebrew_fonts() -> CheckResult:
+    if sys.platform == "win32":
+        # Pango is the text backend used by Manim and sees installed Windows fonts.
+        try:
+            from manimpango import list_fonts
+            installed = {name.casefold(): name for name in list_fonts()}
+        except (ImportError, OSError) as exc:
+            return CheckResult("Hebrew-capable font", False, str(exc),
+                               "Install the pinned Manim dependencies and the DejaVu fonts.")
+        for candidate in HEBREW_FONT_QUERIES:
+            if candidate.casefold() in installed:
+                return CheckResult("Hebrew-capable font", True, installed[candidate.casefold()])
+        return CheckResult("Hebrew-capable font", False, "No documented Hebrew font found by Pango",
+                           "Install DejaVu Sans or Noto Sans Hebrew, then restart the Python process.")
     if shutil.which("fc-match") is None:
         return CheckResult(
             "Hebrew-capable font",

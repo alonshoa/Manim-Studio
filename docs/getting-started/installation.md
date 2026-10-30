@@ -1,5 +1,8 @@
 # Installation
 
+For a clean Windows research workstation, use the
+[Windows bootstrap script](windows-research-setup.md).
+
 Manim Studio supports three local development paths:
 
 - reusable Docker runtime for this repo or external Manim projects

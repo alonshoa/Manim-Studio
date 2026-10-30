@@ -46,7 +46,8 @@ function createClient(repoRoot: string, log: vscode.OutputChannel): StudioRpcCli
   const config = vscode.workspace.getConfiguration("manimStudio");
   const executable = config.get<string>("studioExecutable") || "studio";
   const timeoutMs = config.get<number>("requestTimeoutMs") || 30000;
-  return new StudioRpcClient(repoRoot, executable, "catalog/scenes.yaml", (message) => log.appendLine(message), timeoutMs);
+  const environment = config.get<Record<string, string>>("processEnv") || {};
+  return new StudioRpcClient(repoRoot, executable, "catalog/scenes.yaml", (message) => log.appendLine(message), timeoutMs, environment);
 }
 
 function disposeAll(): void {
