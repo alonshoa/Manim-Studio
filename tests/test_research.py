@@ -204,3 +204,9 @@ class ResearchTests(unittest.TestCase):
         other = self.log.record_prompt(self.session, 'another prompt')
         with self.assertRaises(ValueError):
             self.log.end_action(self.session, action, {}, 0.1, other)
+
+    def test_connection_releases_database_handle_after_transaction(self):
+        with self.log.connection() as db:
+            db.execute("SELECT 1").fetchone()
+        with self.assertRaises(sqlite3.ProgrammingError):
+            db.execute("SELECT 1")

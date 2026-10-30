@@ -1,7 +1,7 @@
 #Requires -Version 5.1
 # GitHub-hosted Windows runner smoke test, using installed Python, MiKTeX and FFmpeg.
 [CmdletBinding()]
-param()
+param([ValidateSet('all', 'prepare', 'test', 'render')][string]$Stage = 'all')
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'setup-windows-research.ps1')
@@ -9,6 +9,7 @@ $cache = Join-Path $env:RUNNER_TEMP 'manim-runtime-smoke'
 New-Item -ItemType Directory -Path $cache -Force | Out-Null
 Update-ProcessPath
 $python = (Get-Command python.exe -ErrorAction Stop).Source
+if ($Stage -in @('all', 'prepare')) {
 $initexmf = Resolve-Tool 'initexmf.exe'
 $miktex = Resolve-Tool 'miktex.exe'
 Invoke-Checked $initexmf @('--set-config-value', '[MPM]AutoInstall=1')
@@ -18,10 +19,14 @@ Ensure-TeXPackages $miktex (Resolve-Tool 'kpsewhich.exe')
 Invoke-Checked $initexmf @('--update-fndb')
 Install-StudioFonts $cache
 Invoke-Checked $python @('-m', 'pip', 'install', '--prefer-binary', '--only-binary=pycairo,manimpango', '-e', '.[dev]')
+}
+if ($Stage -in @('all', 'test')) {
 Invoke-Checked $python @('-m', 'manim_studio.cli', 'doctor')
 # Run the suites that cover research capture, service integration and native setup.
 Invoke-Checked $python @('-m', 'pytest', 'tests/test_research.py', 'tests/test_windows_fonts.py',
     'tests/test_studio_cli.py', 'tests/test_manim_mcp_services.py', 'tests/test_authoring_sessions.py', '-q', '--junitxml=runtime-test-results.xml')
+}
+if ($Stage -in @('all', 'render')) {
 $scene = @'
 from manim import *
 class PackageRuntimeSmoke(Scene):
@@ -40,3 +45,5 @@ if (-not $video -or $video.Length -lt 100) { throw 'Runtime smoke produced no vi
 # Decode the result as well as checking that a file exists.
 Invoke-Checked (Resolve-Tool 'ffmpeg.exe') @('-v', 'error', '-i', $video.FullName, '-f', 'null', '-')
 Write-Host 'Windows native Manim/TeX/Hebrew render and video decode passed.'
+
+}

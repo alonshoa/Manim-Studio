@@ -44,6 +44,10 @@ class StudioContext:
     research_session_id: str | None = None
     research_prompt_id: str | None = None
 
+    def __post_init__(self) -> None:
+        # Resolve aliases (including Windows 8.3 names) before containment checks.
+        object.__setattr__(self, "repo_root", Path(self.repo_root).resolve())
+
 
 def default_context() -> StudioContext:
     root = Path(os.environ.get("MANIM_STUDIO_REPO_ROOT", Path.cwd())).resolve()

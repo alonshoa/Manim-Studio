@@ -67,9 +67,17 @@ jobs:
             choco install ffmpeg --yes --no-progress --limit-output
             if ($LASTEXITCODE -notin @(0, 3010)) { throw 'FFmpeg installation failed.' }
           }
-      - name: Validate Python integration and render Hebrew plus a formula
+      - name: Prepare Python, TeX and Hebrew fonts
+        id: prepare
         shell: powershell
-        run: ./scripts/test-windows-runtime.ps1
+        run: ./scripts/test-windows-runtime.ps1 -Stage prepare
+      - name: Validate native doctor and research integration
+        shell: powershell
+        run: ./scripts/test-windows-runtime.ps1 -Stage test
+      - name: Render and decode Hebrew plus a formula
+        if: ${{ !cancelled() && steps.prepare.outcome == 'success' }}
+        shell: powershell
+        run: ./scripts/test-windows-runtime.ps1 -Stage render
       - name: Keep diagnostic output and smoke video
         if: always()
         uses: actions/upload-artifact@v4

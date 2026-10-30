@@ -379,7 +379,7 @@ class AuthoringSessionTests(unittest.TestCase):
 class AuthoringFixture:
     def __enter__(self) -> "AuthoringFixture":
         self.tempdir = tempfile.TemporaryDirectory()
-        self.root = Path(self.tempdir.name)
+        self.root = Path(self.tempdir.name).resolve()
         (self.root / "catalog").mkdir()
         (self.root / "docs").mkdir()
         (self.root / "docs" / "conventions.md").write_text("# Conventions\n", encoding="utf-8")

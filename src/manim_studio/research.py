@@ -10,7 +10,7 @@ import uuid
 import sys
 
 from manim_studio import __version__
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -41,7 +41,7 @@ class ResearchLog:
     @contextmanager
     def connection(self):
         self.directory.mkdir(parents=True, exist_ok=True)
-        with sqlite3.connect(self.database, timeout=30) as db:
+        with closing(sqlite3.connect(self.database, timeout=30)) as db, db:
             db.row_factory = sqlite3.Row
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL);

@@ -14,6 +14,13 @@ from manim_mcp import services
 
 
 class ManimMcpServiceTests(unittest.TestCase):
+    def test_context_canonicalizes_root_before_source_containment_check(self) -> None:
+        with McpFixture() as fixture:
+            context = services.StudioContext(fixture.root / "catalog" / "..", check_executables=False)
+            self.assertEqual(context.repo_root, fixture.root.resolve())
+            response = services.get_scene_context("demo/intro", context)
+            self.assertTrue(response["ok"], response)
+
     def test_list_decks_and_scene_context(self) -> None:
         with McpFixture() as fixture:
             response = services.list_decks(fixture.context())
