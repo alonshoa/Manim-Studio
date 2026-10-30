@@ -25,17 +25,18 @@ concurrency:
 
 jobs:
   powershell:
-    name: Setup compatibility (${{ matrix.shell }})
+    name: Setup compatibility (PowerShell 5.1 and 7)
     runs-on: windows-2022
     timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@v4
-      - name: Parse scripts and test safe setup behavior
-        shell: ${{ matrix.shell }}
+      - name: Test safe setup behavior on Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          ./scripts/test-windows-setup.ps1
+          ./scripts/setup-windows-research.ps1 -Plan
+      - name: Parse scripts and test setup on PowerShell 7
+        shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           foreach ($file in Get-ChildItem scripts -Filter '*.ps1') {
