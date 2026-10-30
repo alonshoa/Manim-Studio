@@ -24,6 +24,7 @@ dev = [
 [project.scripts]
 manim-mcp = "manim_mcp.server:main"
 studio = "manim_studio.cli:main"
+studio-research = "manim_studio.research_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

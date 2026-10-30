@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from manim_studio import movie_sessions, staged_edits
+from manim_studio.research import instrument_rpc
 from manim_studio.builds import render_scene
 from manim_studio.catalog import CatalogEntry
 from manim_studio.live import LiveError, plan_live_preview
@@ -631,6 +632,7 @@ class AuthoringSessionController:
             print(json.dumps(response, sort_keys=True), flush=True)
         return 0
 
+    @instrument_rpc
     def dispatch(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         if method == "start_session":
             return self.start_session(**params)

@@ -170,3 +170,9 @@ Still planned or intentionally unsupported:
 - a YAML-only animation language
 - fully autonomous scene editing through MCP
 - unrestricted shell access through MCP
+
+## Research logging
+
+Optional local prompt/response and action logging, retrospective classification and
+JSONL export: [research logging v1](docs/concepts/research-logging.md).
+External chat clients must explicitly supply prompts and responses to the bridge.
