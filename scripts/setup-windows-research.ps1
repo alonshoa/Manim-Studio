@@ -18,6 +18,8 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$script:SetupDirectory = $PSScriptRoot
+$script:BranchSpecified = $PSBoundParameters.ContainsKey('Branch')
 
 function Get-SetupPackages {
     @(
@@ -148,10 +150,16 @@ public static class StudioFontInstaller {
 }
 
 function Initialize-Checkout {
-    param([string]$Git, [string]$Repository, [string]$BranchName)
+    param([string]$Git, [string]$Repository, [string]$BranchName, [string]$PinnedCommit = '', [string]$SourceBundle = '')
     $remote = 'https://github.com/alonshoa/Manim-Studio.git'
     if (-not (Test-Path -LiteralPath $Repository)) {
-        Invoke-Checked $Git @('clone', '--branch', $BranchName, '--single-branch', $remote, $Repository)
+        $source = $(if ($SourceBundle) { $SourceBundle } else { $remote })
+        Invoke-Checked $Git @('clone', '--branch', $BranchName, '--single-branch', $source, $Repository)
+        if ($SourceBundle) { Invoke-Checked $Git @('-C', $Repository, 'remote', 'set-url', 'origin', $remote) }
+        if ($PinnedCommit) {
+            $actual = (& $Git -C $Repository rev-parse HEAD | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0 -or $actual -ne $PinnedCommit) { throw 'Bundled source revision mismatch.' }
+        }
         return
     }
     if (-not (Test-Path -LiteralPath (Join-Path $Repository '.git'))) {
@@ -165,7 +173,14 @@ function Initialize-Checkout {
     if ($LASTEXITCODE -ne 0 -or $status) { throw 'The existing checkout has local changes. Commit/stash them or choose another -InstallRoot.' }
     $current = (& $Git -C $Repository branch --show-current | Out-String).Trim()
     if ($current -ne $BranchName) { throw "Existing checkout is on $current; expected $BranchName. No automatic branch switch was performed." }
-    Invoke-Checked $Git @('-C', $Repository, 'pull', '--ff-only', 'origin', $BranchName)
+    if ($PinnedCommit) {
+        $actual = (& $Git -C $Repository rev-parse HEAD | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0 -or $actual -ne $PinnedCommit) {
+            throw 'Existing checkout differs from the packaged commit. Choose a new -InstallRoot; no checkout was replaced.'
+        }
+    } else {
+        Invoke-Checked $Git @('-C', $Repository, 'pull', '--ff-only', 'origin', $BranchName)
+    }
 }
 
 function New-WorkspaceFiles {
@@ -234,10 +249,26 @@ Write-Host 'Trust this project in VS Code, then sign in to Codex. Complete-chat 
 }
 
 function Install-ResearchWorkstation {
+    $package = $null
+    $bundle = ''
+    $pinnedCommit = ''
+    $manifestPath = Join-Path $script:SetupDirectory 'package-manifest.json'
+    if (Test-Path -LiteralPath $manifestPath) {
+        . (Join-Path $script:SetupDirectory 'verify-windows-package.ps1')
+        $package = Test-StudioPackage $script:SetupDirectory
+        if ($script:BranchSpecified -and $Branch -ne $package.source_branch) { throw 'Explicit branch differs from packaged source branch.' }
+        $script:Branch = $package.source_branch
+        $bundle = Join-Path $script:SetupDirectory 'source.bundle'
+        $pinnedCommit = $package.source_commit
+    } elseif (Test-Path -LiteralPath (Join-Path $script:SetupDirectory 'source.bundle')) {
+        throw 'Source bundle exists without its package manifest. Extract a fresh complete package.'
+    }
     if ($Plan) {
         [ordered]@{
             platform = 'Windows 10 22H2 / Windows 11, x64; Administrator under the intended user'
             branch = $Branch
+            source_commit = $pinnedCommit
+            bundled = ($null -ne $package)
             packages = @(Get-SetupPackages)
             remaining = @('Verified DejaVu fonts', 'isolated Python venv outside checkout', 'pinned project dependencies',
                 'compile and package local VS Code extension', 'Python/Codex extensions', 'research session and local logging',
@@ -290,21 +321,25 @@ function Install-ResearchWorkstation {
         foreach ($tool in @('latex.exe', 'xelatex.exe', 'dvisvgm.exe')) { Resolve-Tool $tool | Out-Null }
         Install-StudioFonts $cache
         $repo = Join-Path $root 'Manim-Studio'
-        Initialize-Checkout $git $repo $Branch
+        Initialize-Checkout $git $repo $Branch $pinnedCommit $bundle
         $venv = Join-Path $root 'venv'
         if (-not (Test-Path -LiteralPath (Join-Path $venv 'Scripts\python.exe'))) { Invoke-Checked $python @('-m', 'venv', $venv) }
         $venvPython = Join-Path $venv 'Scripts\python.exe'
         Invoke-Checked $venvPython @('-m', 'pip', 'install', '--upgrade', 'pip', 'setuptools', 'wheel')
         Invoke-Checked $venvPython @('-m', 'pip', 'install', '--prefer-binary', '--only-binary=pycairo,manimpango', '-e', "$repo[dev]")
         $env:Path = "$(Join-Path $venv 'Scripts');$env:Path"
-        $extension = Join-Path $repo 'vscode-extension'
-        Push-Location -LiteralPath $extension
-        try {
-            Invoke-Checked $npm @('ci')
-            Invoke-Checked $npm @('run', 'compile')
-            $vsix = Join-Path $cache 'manim-studio-authoring.vsix'
-            Invoke-Checked $npm @('exec', '--yes', '--package=@vscode/vsce@3', '--', 'vsce', 'package', '--no-dependencies', '--allow-missing-repository', '--out', $vsix)
-        } finally { Pop-Location }
+        if ($package) {
+            $vsix = Join-Path $script:SetupDirectory 'manim-studio-authoring.vsix'
+        } else {
+            $extension = Join-Path $repo 'vscode-extension'
+            Push-Location -LiteralPath $extension
+            try {
+                Invoke-Checked $npm @('ci')
+                Invoke-Checked $npm @('run', 'compile')
+                $vsix = Join-Path $cache 'manim-studio-authoring.vsix'
+                Invoke-Checked $npm @('exec', '--yes', '--package=@vscode/vsce@3', '--', 'vsce', 'package', '--no-dependencies', '--allow-missing-repository', '--out', $vsix)
+            } finally { Pop-Location }
+        }
         Invoke-Checked $code @('--install-extension', $vsix, '--force')
         Invoke-Checked $code @('--install-extension', 'ms-python.python')
         if (-not $SkipCodex) {

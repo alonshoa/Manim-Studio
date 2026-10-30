@@ -1,0 +1,138 @@
+name: Windows research package
+
+"on":
+  push:
+    branches: [main, research/prompt-logging]
+    paths:
+      - '.github/workflows/windows-research-package.yml'
+      - 'scripts/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'vscode-extension/**'
+      - 'pyproject.toml'
+      - 'docs/getting-started/windows-research-setup.md'
+      - 'LICENSE'
+  pull_request:
+    branches: [main, research/prompt-logging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  powershell:
+    name: Setup compatibility (${{ matrix.shell }})
+    runs-on: windows-2022
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse scripts and test safe setup behavior
+        shell: ${{ matrix.shell }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($file in Get-ChildItem scripts -Filter '*.ps1') {
+            $tokens = $null; $parseErrors = $null
+            [Management.Automation.Language.Parser]::ParseFile($file.FullName, [ref]$tokens, [ref]$parseErrors) | Out-Null
+            if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
+          }
+          ./scripts/test-windows-setup.ps1
+          ./scripts/setup-windows-research.ps1 -Plan
+
+  runtime:
+    name: Windows native render and research tests
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Install native render prerequisites
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+          choco install miktex --yes --no-progress --limit-output
+          if ($LASTEXITCODE -notin @(0, 3010)) { throw 'MiKTeX installation failed.' }
+          if (-not (Get-Command ffmpeg.exe -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg --yes --no-progress --limit-output
+            if ($LASTEXITCODE -notin @(0, 3010)) { throw 'FFmpeg installation failed.' }
+          }
+      - name: Validate Python integration and render Hebrew plus a formula
+        shell: powershell
+        run: ./scripts/test-windows-runtime.ps1
+      - name: Keep diagnostic output and smoke video
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-runtime-diagnostics
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            runtime-test-results.xml
+            ${{ runner.temp }}/manim-runtime-smoke/media/**
+
+  package:
+    name: Build and verify downloadable package
+    needs: [powershell, runtime]
+    runs-on: windows-2022
+    timeout-minutes: 20
+    env:
+      SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: vscode-extension/package-lock.json
+      - name: Build and test VS Code extension
+        working-directory: vscode-extension
+        shell: pwsh
+        run: |
+          npm ci
+          if ($LASTEXITCODE) { throw 'npm ci failed.' }
+          npm test
+          if ($LASTEXITCODE) { throw 'Extension tests failed.' }
+          npm exec --yes --package=@vscode/vsce@3 -- vsce package --no-dependencies --out "$env:RUNNER_TEMP/manim-studio-authoring.vsix"
+          if ($LASTEXITCODE) { throw 'VSIX build failed.' }
+      - name: Build ZIP with pinned source, installer and VSIX
+        shell: pwsh
+        run: ./scripts/build-windows-package.ps1 -Vsix "$env:RUNNER_TEMP/manim-studio-authoring.vsix" -SourceBranch $env:SOURCE_BRANCH
+      - name: Test extracted package with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          $package = (Get-ChildItem dist/windows -Filter '*.zip').FullName
+          ./scripts/test-windows-package.ps1 -Package $package
+      - name: Test extracted package with PowerShell 7
+        shell: pwsh
+        run: |
+          $package = (Get-ChildItem dist/windows -Filter '*.zip').FullName
+          ./scripts/test-windows-package.ps1 -Package $package
+      - name: Upload verified installation package
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: Manim-Studio-Research-Windows-x64-${{ github.sha }}
+          path: dist/windows/*
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
+      - name: Link package in workflow summary
+        shell: pwsh
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          "## Windows research installation package" >> $env:GITHUB_STEP_SUMMARY
+          "[Download verified ZIP and SHA-256]($env:ARTIFACT_URL)" >> $env:GITHUB_STEP_SUMMARY
+          "Extract the ZIP, then run Start-Setup.cmd as administrator. Internet is required for third-party dependencies." >> $env:GITHUB_STEP_SUMMARY

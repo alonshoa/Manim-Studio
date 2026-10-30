@@ -5,6 +5,45 @@
 FFmpeg, TeX, Docker or WSL beforehand. It runs with built-in Windows PowerShell 5.1.
 An Internet connection and administrator credentials are required.
 
+
+## Download a tested package from GitHub Actions
+
+Open [Windows research package](https://github.com/alonshoa/Manim-Studio/actions/workflows/windows-research-package.yml),
+select a successful run, and download the `Manim-Studio-Research-Windows-x64-<commit>`
+artifact. GitHub may require sign-in to download an Actions artifact. Extract the
+artifact, then extract its installation ZIP. Right-click `Start-Setup.cmd` and choose
+**Run as administrator** under the intended Windows account.
+
+The ZIP includes the bootstrap, a prebuilt VSIX, instructions/license, a checksum
+manifest and an exact Git source bundle. The installer verifies the payload before
+installing software, clones the bundled revision without fetching a changing branch,
+and reuses the prebuilt extension. It still downloads third-party Windows/Python/TeX
+and Codex dependencies. It is an online setup package, not an offline installer or a
+signed EXE/MSI. `.sha256` alongside the ZIP checks download integrity; it is not a
+code-signing certificate.
+
+The workflow runs automatically on research/main changes and pull requests, and has
+a manual trigger once available to GitHub Actions. Before uploading a package it
+requires Windows PowerShell 5.1 and PowerShell 7 setup tests, extension tests, a real
+Windows Manim/TeX/Hebrew video render/decode, and extraction/integrity/source-pinning
+checks on the generated ZIP. A deliberately corrupted payload must be rejected.
+CI smoke-tests the native runtime on a GitHub-hosted Windows runner; it does not
+claim a zero-software clean desktop or authenticate Codex / verify interactive UI.
+Successful CI runs keep packages for 30 days and diagnostics for 14 days. A failed
+required test prevents package publication. No GitHub Release is created automatically.
+
+To build the same package locally, first commit tracked source changes, build the
+VSIX, then run:
+
+```powershell
+.\scripts\build-windows-package.ps1 -Vsix 'C:\path\manim-studio-authoring.vsix'
+.\scripts\test-windows-package.ps1 -Package '.\dist\windows\Manim-Studio-Research-Windows-x64-COMMIT.zip'
+```
+
+Bundled reruns require a clean checkout at exactly the packaged commit; a different
+revision requires a different `-InstallRoot`. Standalone-script installs retain the
+original branch-based update behavior. This avoids silently mixing source/VSIX builds.
+
 ## Run from a clean machine
 
 Download [setup-windows-research.ps1](https://github.com/alonshoa/Manim-Studio/blob/research/prompt-logging/scripts/setup-windows-research.ps1)
