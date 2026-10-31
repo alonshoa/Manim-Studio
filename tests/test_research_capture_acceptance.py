@@ -60,7 +60,7 @@ class CaptureAcceptanceTests(fixtures.CaptureTests):
                                  prompt_type='corrective', reasons=['technical_render']))
         destination = self.root / 'complete.jsonl'
         self.cli('export', dict(destination=str(destination), include_content=True))
-        records = [json.loads(line) for line in destination.read_text().splitlines()]
+        records = [json.loads(line) for line in destination.read_text(encoding='utf-8').splitlines()]
         self.assertEqual(len(self.typed('prompt.recorded')), 1)
         self.assertEqual(len(self.typed('model.responded')), 2)
         starts = {event['id']: event for event in self.typed('action.started')}
