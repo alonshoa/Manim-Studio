@@ -4,6 +4,7 @@ const { PassThrough } = require("stream");
 const Module = require("module");
 
 let observedSpawnOptions;
+const payloads = [];
 const originalLoad = Module._load;
 Module._load = function patchedLoad(request, parent, isMain) {
   if (request === "child_process") {
@@ -32,6 +33,18 @@ async function main() {
   assert.strictEqual(observedSpawnOptions.env.MANIM_STUDIO_RESEARCH_SESSION, "research-test");
   assert.strictEqual(observedSpawnOptions.env.PATH, "C:/venv/Scripts;C:/tools");
   assert.strictEqual(observedSpawnOptions.cwd, "C:/repo");
+  client.setResearchContext({session_id: "A", client_id: "client-A"});
+  const first = client.request("list_sessions", {}, 5).catch(() => undefined);
+  client.setResearchContext({session_id: "B", client_id: "client-B"});
+  const second = client.request("list_sessions", {}, 5).catch(() => undefined);
+  const management = client.request("research.list", {}, 5).catch(() => undefined);
+  client.setResearchContext(undefined);
+  const detached = client.request("list_sessions", {}, 5).catch(() => undefined);
+  await Promise.all([first, second, management, detached]);
+  assert.strictEqual(payloads.at(-4).params._research.session_id, "A");
+  assert.strictEqual(payloads.at(-3).params._research.session_id, "B");
+  assert.strictEqual(payloads.at(-2).params._research, undefined);
+  assert.deepStrictEqual(payloads.at(-1).params._research, {});
   client.dispose();
 }
 
@@ -42,6 +55,7 @@ function fakeSpawn(_command, _args, options) {
   process.stderr = new EventEmitter();
   process.stdin = {
     write(_payload, callback) {
+      payloads.push(JSON.parse(_payload));
       callback();
     },
   };

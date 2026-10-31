@@ -27,7 +27,17 @@
     "onCommand:manimStudio.showSessionStatus",
     "onCommand:manimStudio.openWorkspace",
     "onCommand:manimStudio.openTerminal",
-    "onCommand:manimStudio.refreshPreview"
+    "onCommand:manimStudio.refreshPreview",
+    "onCommand:manimStudio.research.startSession",
+    "onCommand:manimStudio.research.selectSession",
+    "onCommand:manimStudio.research.attachSource",
+    "onCommand:manimStudio.research.pauseSession",
+    "onCommand:manimStudio.research.resumeSession",
+    "onCommand:manimStudio.research.finishSession",
+    "onCommand:manimStudio.research.showStatus",
+    "onCommand:manimStudio.research.openTerminal",
+    "onCommand:manimStudio.research.retryPending",
+    "onCommand:manimStudio.research.menu"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -152,12 +162,52 @@
       {
         "command": "manimStudio.showSessionStatus",
         "title": "Manim Studio: Show Session Status"
+      },
+      {
+        "command": "manimStudio.research.startSession",
+        "title": "Manim Studio Research: Start Session"
+      },
+      {
+        "command": "manimStudio.research.selectSession",
+        "title": "Manim Studio Research: Select Session"
+      },
+      {
+        "command": "manimStudio.research.attachSource",
+        "title": "Manim Studio Research: Attach Conversation"
+      },
+      {
+        "command": "manimStudio.research.pauseSession",
+        "title": "Manim Studio Research: Pause Session"
+      },
+      {
+        "command": "manimStudio.research.resumeSession",
+        "title": "Manim Studio Research: Resume Session"
+      },
+      {
+        "command": "manimStudio.research.finishSession",
+        "title": "Manim Studio Research: Finish Session"
+      },
+      {
+        "command": "manimStudio.research.showStatus",
+        "title": "Manim Studio Research: Show Status"
+      },
+      {
+        "command": "manimStudio.research.openTerminal",
+        "title": "Manim Studio Research: Open Terminal"
+      },
+      {
+        "command": "manimStudio.research.retryPending",
+        "title": "Manim Studio Research: Retry Pending Action"
+      },
+      {
+        "command": "manimStudio.research.menu",
+        "title": "Manim Studio Research: Session Menu"
       }
     ]
   },
   "scripts": {
     "compile": "tsc -p .",
-    "test": "npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js"
+    "test": "npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js && node test/research-commands.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

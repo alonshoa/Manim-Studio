@@ -9,6 +9,9 @@ from manim_studio.research import ResearchLog, PROMPT_TYPES, REASONS, STAGES
 
 def dispatch(root: Path, action: str, payload: dict):
     log = ResearchLog(root)
+    if action.startswith('research.'):
+        from manim_studio.research_sessions import ResearchSessions
+        return ResearchSessions(root).dispatch(action.removeprefix('research.'), payload)
     operations = {
         'configure': log.configure,
         'start_session': log.start_session,
@@ -35,11 +38,13 @@ def dispatch(root: Path, action: str, payload: dict):
 
 
 def main():
+    from manim_studio.research_sessions import ACTIONS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('action', choices=['configure', 'start_session', 'record_prompt',
                                          'record_response', 'classify', 'export', 'schema', 'status',
-                                         'codex-connect', 'codex-config', 'codex-hook', 'capture-status'])
+                                         'codex-connect', 'codex-config', 'codex-hook', 'capture-status'] +
+                                        ['research.' + action for action in ACTIONS])
     args = parser.parse_args()
     payload = None
     try:

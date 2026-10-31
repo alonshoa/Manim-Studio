@@ -634,6 +634,9 @@ class AuthoringSessionController:
 
     @instrument_rpc
     def dispatch(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
+        if method.startswith('research.'):
+            from manim_studio.research_cli import dispatch
+            return dispatch(self.repo_root, method, params)
         if method == "start_session":
             return self.start_session(**params)
         if method == "list_sessions":
@@ -1430,6 +1433,9 @@ def _iter_stdin_lines():
 
 
 def _exception_payload(exc: Exception) -> dict[str, Any]:
+    from manim_studio.research_sessions import ResearchSessionError
+    if isinstance(exc, ResearchSessionError):
+        return {"code": exc.code, "message": str(exc), "detail": None}
     if isinstance(exc, AuthoringSessionError):
         return {"code": exc.code, "message": exc.message, "detail": exc.detail}
     if isinstance(exc, movie_sessions.MovieSessionError):

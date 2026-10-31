@@ -14,6 +14,16 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
     ctx = base_ctx
     mcp = FastMCP("Manim Studio")
 
+    def research_context(session_id, prompt_id, client_id):
+        # Explicit session/client context is a complete request-local override.
+        # Never combine a new client with a stale server environment session.
+        if session_id is not None or client_id is not None:
+            return replace(base_ctx, research_session_id=session_id,
+                           research_prompt_id=prompt_id, research_client_id=client_id,
+                           research_context_origin='explicit')
+        return replace(base_ctx, research_prompt_id=prompt_id if prompt_id is not None
+                       else base_ctx.research_prompt_id)
+
     @mcp.resource("manim-studio://conventions")
     def project_conventions() -> str:
         """Read the project conventions document."""
@@ -52,10 +62,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
     def list_decks(
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """List registered decks and scenes."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.list_decks(ctx)
 
     @mcp.tool()
@@ -63,10 +73,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         target: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Read catalog metadata, source text, and beat metadata for a registered scene."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.get_scene_context(target, ctx)
 
     @mcp.tool()
@@ -75,10 +85,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         profile: str = "draft",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Validate a registered scene against a render profile."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.validate_scene(target, profile, ctx)
 
     @mcp.tool()
@@ -88,10 +98,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         force: bool = False,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Render a registered scene into an isolated build directory."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.render_scene(target, profile, force, ctx)
 
     @mcp.tool()
@@ -102,10 +112,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         force: bool = False,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Render a named beat for a registered scene."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.render_beat(target, beat_id, profile, force, ctx)
 
     @mcp.tool()
@@ -115,10 +125,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         force: bool = False,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Render every scene in a registered deck serially."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.build_deck(deck_id, profile, force, ctx)
 
     @mcp.tool()
@@ -127,10 +137,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         stream: Literal["stdout", "stderr"] = "stdout",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Read stdout or stderr for an isolated build."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.get_build_log(build_id, stream, ctx)
 
     @mcp.tool()
@@ -138,10 +148,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         build_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Read artifact metadata for an isolated build."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.get_artifacts(build_id, ctx)
 
     @mcp.tool()
@@ -151,10 +161,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         rationale: str = "",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Create a staged patch proposal for one registered scene source."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.propose_scene_patch(target, edits, rationale, ctx)
 
     @mcp.tool()
@@ -162,10 +172,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         proposal_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Inspect staged patch metadata, diff, validation, and render state."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.inspect_scene_patch(proposal_id, ctx)
 
     @mcp.tool()
@@ -174,10 +184,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         profile: str = "draft",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Validate a staged patch proposal inside its isolated workspace."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.validate_scene_patch(proposal_id, profile, ctx)
 
     @mcp.tool()
@@ -185,10 +195,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         proposal_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Draft-render a staged patch proposal inside its isolated workspace."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.render_scene_patch(proposal_id, ctx)
 
     @mcp.tool()
@@ -197,10 +207,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         confirm: str = "apply",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Apply an approved staged patch to the canonical registered scene source."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.apply_scene_patch(proposal_id, confirm, ctx)
 
     @mcp.tool()
@@ -209,10 +219,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         build_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Create a conservative staged patch proposal from a failed render build."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.propose_render_debug_patch(target, build_id, ctx)
 
     @mcp.tool()
@@ -223,10 +233,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         class_name: str | None = None,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Create a registered empty-slate movie session for live iteration."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.start_movie_session(title, deck_id, scene_id, class_name, ctx)
 
     @mcp.tool()
@@ -234,20 +244,20 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Inspect accepted steps and live command for a movie session."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.get_movie_session(session_id, ctx)
 
     @mcp.tool()
     def list_authoring_sessions(
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """List persisted authoring sessions with compact state summaries."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.list_authoring_sessions(ctx)
 
     @mcp.tool()
@@ -255,10 +265,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Read compact authoring-session and live-preview state."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.get_authoring_session_status(session_id, ctx)
 
     @mcp.tool()
@@ -266,10 +276,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Discover the newest actionable staged proposal for an authoring session."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.discover_active_proposal(session_id, ctx)
 
     @mcp.tool()
@@ -279,10 +289,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         rationale: str = "",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Create a staged addon proposal for a movie session's registered scene."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.propose_movie_step(session_id, edits, rationale, ctx)
 
     @mcp.tool()
@@ -293,10 +303,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         rationale: str = "",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Append the next semantic free-form authoring step inside construct()."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.propose_next_movie_step(session_id, body, title, rationale, ctx)
 
     @mcp.tool()
@@ -305,10 +315,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         proposal_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Preview a staged movie proposal without changing canonical source."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.preview_movie_step(session_id, proposal_id, ctx)
 
     @mcp.tool()
@@ -319,10 +329,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         confirm: str = "accept",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Apply an approved staged proposal and append it to the session steps ledger."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.accept_movie_step(session_id, proposal_id, note, confirm, ctx)
 
     @mcp.tool()
@@ -331,10 +341,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         proposal_id: str | None = None,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Reject the active movie proposal and return live preview to accepted source."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.reject_movie_step(session_id, proposal_id, ctx)
 
     @mcp.tool()
@@ -344,10 +354,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         proposal_id: str | None = None,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Request a distinct revision and expose feedback to authoring context."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.revise_movie_step(session_id, feedback, proposal_id, ctx)
 
     @mcp.tool()
@@ -356,10 +366,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         proposal_policy: str = "keep",
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Pause an authoring session and optionally keep or reject an active draft."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.pause_authoring_session(session_id, proposal_policy, ctx)
 
     @mcp.tool()
@@ -367,10 +377,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Resume a paused authoring session and restore live preview."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.resume_authoring_session(session_id, ctx)
 
     @mcp.tool()
@@ -378,10 +388,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Validate and draft-render the accepted canonical session scene."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.finish_authoring_session(session_id, ctx)
 
     @mcp.tool()
@@ -389,10 +399,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Start local live preview for the authoring session."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.start_authoring_live(session_id, ctx)
 
     @mcp.tool()
@@ -400,10 +410,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Restart local live preview for the authoring session."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.restart_authoring_live(session_id, ctx)
 
     @mcp.tool()
@@ -411,10 +421,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         session_id: str,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Stop local live preview for the authoring session."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.stop_authoring_live(session_id, ctx)
 
     @mcp.tool()
@@ -425,10 +435,10 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
         force: bool = False,
         research_session_id: str | None = None,
         research_prompt_id: str | None = None,
+        research_client_id: str | None = None,
     ) -> dict:
         """Export an all-slides deck to a supported delivery format."""
-        ctx = replace(base_ctx, research_session_id=research_session_id or base_ctx.research_session_id,
-                      research_prompt_id=research_prompt_id or base_ctx.research_prompt_id)
+        ctx = research_context(research_session_id, research_prompt_id, research_client_id)
         return services.export_deck(deck_id, format, profile, force, ctx)
 
     @mcp.tool()

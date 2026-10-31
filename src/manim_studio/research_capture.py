@@ -215,6 +215,22 @@ class CodexCapture:
             epoch = db.execute("SELECT value FROM config WHERE key='capture_epoch'").fetchone()
             epoch = epoch[0] if epoch else '0'
             row = db.execute('SELECT * FROM capture_threads WHERE thread_id=?', (thread,)).fetchone()
+            from manim_studio.research_sessions import managed
+            db.execute('INSERT INTO research_sources VALUES (?,?,?,?,?,?,?,?) '
+                       'ON CONFLICT(thread_id) DO UPDATE SET transcript_path=COALESCE(excluded.transcript_path,research_sources.transcript_path), '
+                       'last_turn_id=COALESCE(excluded.last_turn_id,research_sources.last_turn_id), '
+                       'last_hook_at=excluded.last_hook_at,connected=excluded.connected,protocol_version=excluded.protocol_version',
+                       (str(uuid.uuid4()), thread, row['session_id'] if row else None,
+                        payload.get('transcript_path') if isinstance(payload.get('transcript_path'), str) else None,
+                        turn, _now(), int(name != 'SessionEnd'), SCHEMA_VERSION))
+            if not row and managed(db):
+                return {'recorded': False, 'reason': 'unbound_source'}
+            management = db.execute('SELECT * FROM research_sessions WHERE session_id=?',
+                                    (row['session_id'],)).fetchone() if row else None
+            if management:
+                epoch += ':' + str(management['capture_epoch'])
+                if management['state'] != 'active':
+                    return {'recorded': False, 'reason': 'session_' + management['state'], 'session_id': row['session_id']}
             if row:
                 session, state = row['session_id'], json.loads(row['state'])
             else:
@@ -227,15 +243,22 @@ class CodexCapture:
                                  'studio_version': __version__, 'python_version': sys.version,
                                  'source': {'client': 'codex', 'thread_id': thread},
                                  'model': None, 'run_settings': None})
+                db.execute('UPDATE research_sources SET session_id=? WHERE thread_id=?', (session, thread))
             self.db, self.thread, self.session, self.state = db, thread, session, state
             self.delivery = _identifier(delivery_id, 'delivery_id') if delivery_id is not None else str(uuid.uuid4())
             receipt = f'hook:{name}:{self.delivery}'
             if self._seen(receipt):
                 return {'recorded': False, 'reason': 'duplicate', 'session_id': session}
             # Inspect only the explicitly supplied transcript. Never sweep ~/.codex.
-            self._transcript(payload, reset=bool(row and row['epoch'] != epoch),
+            reset = bool(row and row['epoch'] != epoch)
+            if reset:
+                blocked = set(state.get('blocked_turns', [])) | set(state.get('prompts', {}))
+                state.update(prompts={}, last_responses={}, blocked_turns=sorted(blocked))
+            pending = state.pop('pending_boundary', False)
+            state['managed'] = bool(management)
+            self._transcript(payload, reset=reset,
                              attach=not row and not (name == 'SessionStart' and
-                                                    payload.get('source') == 'startup'))
+                                                    payload.get('source') == 'startup') or pending)
             if isinstance(payload.get('model'), str):
                 state['model']['model'] = payload['model']
             source = self._source(turn, hook=name)
@@ -250,7 +273,10 @@ class CodexCapture:
                                      actor='human')
                 state['prompts'].setdefault(turn, []).append(prompt)
             elif name in ('PreToolUse', 'PostToolUse'):
-                self._tool(payload, source)
+                if turn in state.get('blocked_turns', []):
+                    self._gap('tool_crosses_collection_boundary', turn)
+                else:
+                    self._tool(payload, source)
             elif name == 'Stop':
                 text = payload.get('last_assistant_message')
                 previous = state['last_responses'].get(turn)
@@ -285,7 +311,7 @@ class CodexCapture:
                     'capture_status': state['capture_status']}
 
     def _source(self, turn, **extra):
-        return dict(client='codex', adapter_version=1, thread_id=self.thread, turn_id=turn, **extra)
+        return dict(client='codex', adapter_version=2, thread_id=self.thread, turn_id=turn, **extra)
 
     def _seen(self, key):
         return self.db.execute('SELECT 1 FROM capture_receipts WHERE thread_id=? AND source_key=?',
@@ -306,6 +332,9 @@ class CodexCapture:
 
     def _response(self, text, turn, source):
         prompts = self.state['prompts'].get(turn, [])
+        if self.state.get('managed') and (turn in self.state.get('blocked_turns', []) or not prompts):
+            self._gap('response_crosses_collection_boundary', turn)
+            return
         source = dict(source)
         settings = source.pop('run_settings', None)
         self._event('model.responded', {'text': text, 'model': dict(self.state['model']),
@@ -325,6 +354,9 @@ class CodexCapture:
             return
         turn = source['turn_id']
         prompts = list(self.state['prompts'].get(turn, []))
+        if self.state.get('managed') and not prompts:
+            self._gap('tool_without_captured_prompt', turn)
+            return
         prompt = prompts[0] if len(prompts) == 1 else None
         source = dict(source, tool_call_id=call)
         if phase == 'PreToolUse':

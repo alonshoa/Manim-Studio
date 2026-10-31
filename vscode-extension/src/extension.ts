@@ -3,11 +3,13 @@ import { ManimPreviewPanel } from "./previewPanel";
 import { SessionCommandController } from "./sessionCommands";
 import { StudioRpcClient } from "./studioClient";
 import { TerminalManager } from "./terminalManager";
+import { ResearchCommandController } from "./researchCommands";
 
 let client: StudioRpcClient | undefined;
 let controller: SessionCommandController | undefined;
 let terminal: TerminalManager | undefined;
 let output: vscode.OutputChannel | undefined;
+let research: ResearchCommandController | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel("Manim Studio");
@@ -24,6 +26,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   client = createClient(workspace.uri.fsPath, output);
   terminal = new TerminalManager(workspace.uri.fsPath);
+  const researchBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  research = new ResearchCommandController(context, client, terminal, researchBar, output);
+  research.register();
   const preview = new ManimPreviewPanel(context, workspace.uri.fsPath, (action) => {
     if (!controller) {
       return Promise.resolve();
@@ -51,6 +56,8 @@ function createClient(repoRoot: string, log: vscode.OutputChannel): StudioRpcCli
 }
 
 function disposeAll(): void {
+  research?.dispose();
+  research = undefined;
   controller?.dispose();
   controller = undefined;
   client?.dispose();

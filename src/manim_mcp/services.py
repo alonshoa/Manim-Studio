@@ -43,6 +43,8 @@ class StudioContext:
     check_executables: bool = True
     research_session_id: str | None = None
     research_prompt_id: str | None = None
+    research_client_id: str | None = None
+    research_context_origin: str = 'explicit'
 
     def __post_init__(self) -> None:
         # Resolve aliases (including Windows 8.3 names) before containment checks.
@@ -55,7 +57,9 @@ def default_context() -> StudioContext:
     builds_root = os.environ.get("MANIM_STUDIO_BUILDS_ROOT", DEFAULT_BUILDS_ROOT)
     return StudioContext(root, catalog_path=catalog_path, builds_root=builds_root,
                          research_session_id=os.environ.get("MANIM_STUDIO_RESEARCH_SESSION"),
-                         research_prompt_id=os.environ.get("MANIM_STUDIO_RESEARCH_PROMPT"))
+                         research_prompt_id=os.environ.get("MANIM_STUDIO_RESEARCH_PROMPT"),
+                         research_client_id=os.environ.get("MANIM_STUDIO_RESEARCH_CLIENT"),
+                         research_context_origin='environment')
 
 
 @instrument

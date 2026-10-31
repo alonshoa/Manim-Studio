@@ -18,6 +18,8 @@ export function buildRpcArgs(repoRoot: string, catalog = "catalog/scenes.yaml"):
 }
 
 export class StudioRpcClient {
+  private researchContext: Record<string, string> | undefined;
+  private researchContextControlled = false;
   private process: ChildProcessWithoutNullStreams | undefined;
   private nextId = 1;
   private pending = new Map<number, PendingRequest>();
@@ -62,6 +64,10 @@ export class StudioRpcClient {
   }
 
   async request(method: string, params: Record<string, unknown> = {}, timeoutMs = this.requestTimeoutMs): Promise<RpcResponse> {
+    // Snapshot request-local context before any later UI selection change.
+    if (!method.startsWith("research.") && this.researchContextControlled && !("_research" in params)) {
+      params = { ...params, _research: { ...(this.researchContext ?? {}) } };
+    }
     this.start();
     if (!this.process) {
       throw new Error("studio authoring rpc did not start");
@@ -100,6 +106,11 @@ export class StudioRpcClient {
     this.pending.clear();
     this.process.kill();
     this.process = undefined;
+  }
+
+  setResearchContext(context: Record<string, string> | undefined): void {
+    this.researchContextControlled = true;
+    this.researchContext = context ? { ...context } : undefined;
   }
 
   private handleLine(line: string): void {

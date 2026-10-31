@@ -14,7 +14,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 PROMPT_TYPES = ('initial', 'continuation', 'corrective', 'irrelevant')
 REASONS = ('factual_math', 'narrative_order', 'unclear_explanation', 'add_content',
            'remove_content', 'visual_animation', 'intent_mismatch', 'technical_render', 'other')
@@ -52,6 +52,18 @@ class ResearchLog:
                     timestamp TEXT NOT NULL, actor TEXT NOT NULL, stage TEXT NOT NULL,
                     payload TEXT NOT NULL);
                 CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, content BLOB NOT NULL);
+                CREATE TABLE IF NOT EXISTS research_sessions (
+                    session_id TEXT PRIMARY KEY, title TEXT NOT NULL, topic TEXT NOT NULL,
+                    state TEXT NOT NULL, revision INTEGER NOT NULL, capture_epoch INTEGER NOT NULL,
+                    created_at TEXT NOT NULL, finished_at TEXT);
+                CREATE TABLE IF NOT EXISTS research_sources (
+                    source_id TEXT PRIMARY KEY, thread_id TEXT NOT NULL UNIQUE,
+                    session_id TEXT UNIQUE, transcript_path TEXT, last_turn_id TEXT,
+                    last_hook_at TEXT NOT NULL, connected INTEGER NOT NULL, protocol_version INTEGER NOT NULL);
+                CREATE TABLE IF NOT EXISTS research_clients (
+                    client_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, client_type TEXT NOT NULL);
+                CREATE TABLE IF NOT EXISTS research_requests (
+                    request_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, result TEXT NOT NULL);
             ''')
             yield db
 
@@ -63,10 +75,15 @@ class ResearchLog:
             row = db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()
             return row is not None and row[0] == 'true'
 
-    def configure(self, enabled: bool):
+    def configure(self, enabled: bool, managed: bool = False):
         if not isinstance(enabled, bool):
             raise ValueError('enabled must be a boolean')
+        if not isinstance(managed, bool):
+            raise ValueError('managed must be a boolean')
         with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            if managed:
+                db.execute("INSERT OR REPLACE INTO config VALUES ('managed_sessions','true')")
             previous = db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()
             if previous is None or previous[0] != ('true' if enabled else 'false'):
                 # Capture adapters must not backfill content produced while paused.
@@ -80,6 +97,20 @@ class ResearchLog:
 
     def _event(self, db, kind, session_id, payload, *, prompt_id=None, parent_id=None,
                actor='system', stage='unknown'):
+        if not db.in_transaction:
+            db.execute('BEGIN IMMEDIATE')
+        if kind in ('prompt.recorded', 'model.responded', 'action.started', 'action.finished'):
+            from manim_studio.research_sessions import collection_epoch
+            enabled = db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()
+            if not enabled or enabled[0] != 'true':
+                raise ValueError('research logging is disabled')
+            epoch = collection_epoch(db, session_id)
+            if epoch is not None:
+                payload = dict(payload, research_epoch=epoch)
+                if kind == 'action.finished' and parent_id:
+                    start = db.execute('SELECT payload FROM events WHERE id=?', (parent_id,)).fetchone()
+                    if start and json.loads(start[0]).get('research_epoch') != epoch:
+                        raise ValueError('action crosses research collection boundary')
         if actor not in ACTORS or stage not in STAGES:
             raise ValueError('invalid actor or stage')
         if kind != 'session.started':
@@ -88,12 +119,15 @@ class ResearchLog:
             if session is None:
                 raise ValueError('unknown research session')
         if prompt_id is not None:
-            prompt = db.execute("SELECT session_id,stage FROM events WHERE id=? AND type='prompt.recorded'",
+            prompt = db.execute("SELECT session_id,stage,payload FROM events WHERE id=? AND type='prompt.recorded'",
                                 (prompt_id,)).fetchone()
             if prompt is None or prompt[0] != session_id:
                 raise ValueError('prompt does not belong to research session')
             if stage == 'unknown':
                 stage = prompt[1]
+            if kind in ('model.responded', 'action.started') and payload.get('research_epoch') is not None:
+                if json.loads(prompt[2]).get('research_epoch') != payload['research_epoch']:
+                    raise ValueError('prompt crosses research collection boundary')
         if parent_id is not None:
             parent = db.execute('SELECT session_id FROM events WHERE id=?', (parent_id,)).fetchone()
             if parent is None or parent[0] != session_id:
@@ -199,13 +233,16 @@ class ResearchLog:
             files[relative] = sha
         return {'files': files, 'omitted': omitted, 'scope': 'catalog/scenes.yaml, scenes|decks|.manim-studio/authoring *.py|*.json'}
 
-    def begin_action(self, session_id, name, arguments, prompt_id=None):
+    def begin_action(self, session_id, name, arguments, prompt_id=None, source=None):
         self._require_enabled()
         stage = ('export' if 'export' in name else 'render' if 'render' in name else
                  'validation' if 'validat' in name else 'unknown')
         with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            from manim_studio.research_sessions import collection_epoch
+            collection_epoch(db, session_id)
             return self._event(db, 'action.started', session_id,
-                               {'name': name, 'arguments': arguments, 'state': self.snapshot(db)},
+                               {'name': name, 'arguments': arguments, 'state': self.snapshot(db), 'source': source},
                                prompt_id=prompt_id, stage=stage)
 
     def end_action(self, session_id, action_id, result, elapsed, prompt_id=None, error=None):
@@ -213,13 +250,21 @@ class ResearchLog:
         if not self.enabled:
             return None
         with self.connection() as db:
+            db.execute('BEGIN IMMEDIATE')
+            from manim_studio.research_sessions import collection_epoch
+            epoch = collection_epoch(db, session_id)
             action = db.execute("SELECT stage,prompt_id FROM events WHERE id=? AND type='action.started' AND session_id=?",
                                 (action_id, session_id)).fetchone()
             if action is None or action[1] != prompt_id:
                 raise ValueError('unknown action start or mismatched prompt')
+            original = db.execute('SELECT payload FROM events WHERE id=?', (action_id,)).fetchone()
+            start_payload = json.loads(original[0])
+            if epoch is not None and start_payload.get('research_epoch') != epoch:
+                raise ValueError('action crosses research collection boundary')
             return self._event(db, 'action.finished', session_id,
                                {'result': result, 'error': error, 'duration_seconds': elapsed,
-                                'state': self.snapshot(db)}, prompt_id=prompt_id, parent_id=action_id, stage=action[0])
+                                'state': self.snapshot(db), 'source': start_payload.get('source')},
+                               prompt_id=prompt_id, parent_id=action_id, stage=action[0])
 
     def export(self, destination: Path, include_content=False):
         """Default export omits prompt/response/source/arguments/result/free text."""
@@ -240,7 +285,9 @@ class ResearchLog:
                     event['payload'] = {k: v for k, v in event['payload'].items() if k in
                         ('schema_version', 'studio_version', 'prompt_type', 'reasons',
                          'human_seconds', 'time_source', 'name', 'duration_seconds', 'state',
-                         'source', 'related_prompt_ids', 'capture_status', 'code', 'status')}
+                         'source', 'related_prompt_ids', 'capture_status', 'code', 'status',
+                         'source_id', 'thread_id', 'client_id', 'client_type', 'research_epoch',
+                         'reason', 'boundary_verified', 'coverage_start', 'offset')}
                 records.append(event)
             if include_content:
                 import base64
@@ -264,16 +311,33 @@ def instrument(function):
     def wrapped(*args, **kwargs):
         bound = signature.bind(*args, **kwargs)
         ctx = bound.arguments.get('context')
-        if ctx is None or not ctx.research_session_id:
+        if ctx is None:
             return function(*args, **kwargs)
         log = ResearchLog(ctx.repo_root)
+        from manim_studio.research_sessions import ResearchSessions
+        try:
+            session_id, prompt_id = ResearchSessions(ctx.repo_root).resolve(
+                getattr(ctx, 'research_session_id', None), getattr(ctx, 'research_prompt_id', None),
+                getattr(ctx, 'research_client_id', None), getattr(ctx, 'research_context_origin', 'explicit'))
+        except Exception as exc:
+            # Fail open without retaining unbound arguments or choosing another session.
+            from manim_studio.research_capture import CodexCapture
+            try:
+                CodexCapture(ctx.repo_root).record_failure({}, getattr(exc, 'code', 'invalid_context'))
+            except Exception:
+                pass
+            warnings.warn(f'Research context rejected: {exc}', RuntimeWarning)
+            return function(*args, **kwargs)
+        if not session_id:
+            return function(*args, **kwargs)
         action_id = None
         started = time.monotonic()
         try:
             if log.enabled:
                 arguments = {k: v for k, v in bound.arguments.items() if k != 'context'}
-                action_id = log.begin_action(ctx.research_session_id, function.__name__,
-                                             arguments, ctx.research_prompt_id)
+                action_id = log.begin_action(session_id, function.__name__, arguments, prompt_id,
+                    source={'client_id': getattr(ctx, 'research_client_id', None),
+                            'boundary': 'rpc' if function.__name__.startswith('authoring.') else 'service'})
         except Exception as exc:
             warnings.warn(f'Research logging failed before {function.__name__}: {exc}', RuntimeWarning)
         result, error = None, None
@@ -288,8 +352,8 @@ def instrument(function):
                 try:
                     # Service responses are already JSON-compatible apart from Path values.
                     serializable = json.loads(json.dumps(result, default=str))
-                    log.end_action(ctx.research_session_id, action_id, serializable,
-                                   time.monotonic() - started, ctx.research_prompt_id, error)
+                    log.end_action(session_id, action_id, serializable,
+                                   time.monotonic() - started, prompt_id, error)
                 except Exception as exc:
                     warnings.warn(f'Research logging failed after {function.__name__}: {exc}', RuntimeWarning)
     return wrapped
@@ -304,13 +368,18 @@ def instrument_rpc(function):
     @functools.wraps(function)
     def wrapped(self, method, params):
         params = dict(params)
+        if method.startswith('research.'):
+            return function(self, method, params)
+        explicit = '_research' in params
         metadata = params.pop('_research', {})
         if not isinstance(metadata, dict):
             raise ValueError('_research must be an object')
         context = SimpleNamespace(
             repo_root=self.repo_root,
-            research_session_id=metadata.get('session_id') or os.environ.get('MANIM_STUDIO_RESEARCH_SESSION'),
-            research_prompt_id=metadata.get('prompt_id') or os.environ.get('MANIM_STUDIO_RESEARCH_PROMPT'))
+            research_session_id=metadata.get('session_id') if explicit else os.environ.get('MANIM_STUDIO_RESEARCH_SESSION'),
+            research_prompt_id=metadata.get('prompt_id') if explicit else os.environ.get('MANIM_STUDIO_RESEARCH_PROMPT'),
+            research_client_id=metadata.get('client_id') if explicit else os.environ.get('MANIM_STUDIO_RESEARCH_CLIENT'),
+            research_context_origin='explicit' if explicit else 'environment')
 
         def invoke(method, params, context=None):
             return function(self, method, params)

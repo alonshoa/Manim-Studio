@@ -6,6 +6,7 @@ export type CommandExists = (command: string) => boolean;
 export class TerminalManager {
   private terminal: vscode.Terminal | undefined;
   private shownOnce = false;
+  private readonly researchTerminals = new Map<string, vscode.Terminal>();
 
   constructor(
     private readonly workspaceRoot: string,
@@ -35,6 +36,25 @@ export class TerminalManager {
     this.terminal?.dispose();
     this.terminal = undefined;
     this.shownOnce = false;
+    for (const terminal of this.researchTerminals.values()) {
+      terminal.dispose();
+    }
+    this.researchTerminals.clear();
+  }
+
+  showResearch(sessionId: string, title: string, clientId: string, configuredShellPath = ""): void {
+    let terminal = this.researchTerminals.get(sessionId);
+    if (!terminal || terminal.exitStatus !== undefined) {
+      terminal = vscode.window.createTerminal({
+        name: `Research: ${title}`,
+        cwd: this.workspaceRoot,
+        shellPath: resolvePowerShellExecutable(configuredShellPath, process.platform, this.commandExists),
+        env: { MANIM_STUDIO_RESEARCH_SESSION: sessionId, MANIM_STUDIO_RESEARCH_CLIENT: clientId,
+          MANIM_STUDIO_RESEARCH_PROMPT: "" },
+      });
+      this.researchTerminals.set(sessionId, terminal);
+    }
+    terminal.show(false);
   }
 }
 

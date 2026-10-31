@@ -21,6 +21,13 @@ must still submit prompts/responses to the bridge. Never infer prompts from tool
 There is no built-in automatic classification model or VS Code classification UI yet.
 Use the bridge for manual labeling or to submit host-generated suggestions.
 
+## Managed research sessions
+
+Explicit lifecycle, topic selection, independent pause/resume, source/client binding,
+and the VS Code research controls are documented in [research sessions](research-sessions.md).
+The additive v3 schema keeps existing ledger/capture identities and adds management
+state and stable request receipts. Native client delivery remains a separate acceptance gate.
+
 ## Automatic Codex capture
 
 The passive adapter uses Codex's documented [hooks](https://developers.openai.com/codex/hooks):
@@ -216,7 +223,7 @@ content collection; pausing mid-action may leave a start without a finish. A cra
 logging failure may also leave an incomplete action. Instrumentation warnings go to
 stderr, never the JSON-RPC stdout protocol. They indicate a collection gap.
 
-Each event has schema version (v2 in new session/export records), durable project ID (config/export),
+Each event has schema version (v3 in new session/export records), durable project ID (config/export),
 UUID event/session IDs, optional prompt and parent IDs, UTC timestamp, actor, stage,
 payload and SQLite sequence number. Sequence defines ledger insertion order; concurrent
 operations can overlap. Event types:
