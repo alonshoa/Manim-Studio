@@ -180,14 +180,22 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(len(self.read('history')['history']),1)
 
     def test_dedicated_rpc_round_trip_and_non_annotation_methods_are_rejected(self):
-        env=dict(os.environ,PYTHONPATH=str(Path(__file__).resolve().parents[1]/'src'))
+        # Reproduce a non-UTF8 Windows console even on a UTF8 development host.
+        env=dict(os.environ,PYTHONPATH=str(Path(__file__).resolve().parents[1]/'src'),
+                 PYTHONIOENCODING='cp1252',PYTHONUTF8='0')
         requests=[{'id':1,'method':'classification.list','params':{'session_id':self.session}},
-                  {'id':2,'method':'render_scene','params':{}}, {'id':3,'method':'research.list','params':{}}]
-        result=subprocess.run([sys.executable,'-X','utf8','-m','manim_studio.cli','research','rpc','--repo-root',str(self.root)],
-            input='\n'.join(map(json.dumps,requests))+'\n',text=True,capture_output=True,env=env,timeout=10)
+                  {'id':2,'method':'render_scene','params':{}}, {'id':3,'method':'research.list','params':{}},
+                  {'id':4,'method':'classification.save','params':{'session_id':self.session,'prompt_id':self.prompt,
+                   'project_id':self.read()['project_id'],'expected_human_head':None,'request_id':'locale-save',
+                   'prompt_type':'corrective','reasons':['other'],'other':'הסבר בעברית'}}]
+        result=subprocess.run([sys.executable,'-m','manim_studio.cli','research','rpc','--repo-root',str(self.root)],
+            input='\n'.join(json.dumps(r,ensure_ascii=False) for r in requests)+'\n',text=True,encoding='utf-8',capture_output=True,env=env,timeout=10)
         self.assertEqual(result.returncode,0,result.stderr)
         responses=list(map(json.loads,result.stdout.splitlines()))
         self.assertTrue(responses[0]['ok']); self.assertFalse(responses[1]['ok']); self.assertTrue(responses[2]['ok'])
+        self.assertEqual(responses[0]['data']['prompts'][0]['preview'],'הדוגמה לא מסבירה למה צריך נרמול')
+        self.assertTrue(responses[3]['ok'],responses[3])
+        self.assertEqual(responses[3]['data']['current']['payload']['other'],'הסבר בעברית')
 
     def test_shared_context_is_marked_ambiguous_not_inferred(self):
         with self.log.connection() as db:
@@ -246,7 +254,7 @@ print(json.dumps(result),flush=True)
 os._exit(30)
 '''
         for mode,code in [('before',29),('after',30)]:
-            result=subprocess.run([sys.executable,'-X','utf8','-c',script],input=json.dumps([str(self.root),mode,payload]),text=True,capture_output=True,env=env,timeout=10)
+            result=subprocess.run([sys.executable,'-X','utf8','-c',script],input=json.dumps([str(self.root),mode,payload]),text=True,encoding="utf-8",capture_output=True,env=env,timeout=10)
             self.assertEqual(result.returncode,code,result.stderr)
             if mode=='before': self.assertFalse(self.read('history')['history'])
             else:

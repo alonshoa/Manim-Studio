@@ -51,6 +51,8 @@ def dispatch(root: Path, action: str, payload: dict):
 
 def rpc_loop(root):
     """Dedicated annotation transport, separate from the synchronous authoring queue."""
+    from manim_studio.rpc_stdio import configure_utf8
+    configure_utf8()
     for line in sys.stdin:
         request_id = None
         try:

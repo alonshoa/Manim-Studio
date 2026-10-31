@@ -622,6 +622,8 @@ class AuthoringSessionController:
         return self._compact(state, status="stopped")
 
     def rpc_loop(self) -> int:
+        from manim_studio.rpc_stdio import configure_utf8
+        configure_utf8()
         for line in _iter_stdin_lines():
             request_id: Any = None
             try:

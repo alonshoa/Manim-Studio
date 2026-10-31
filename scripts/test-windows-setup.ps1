@@ -23,7 +23,7 @@ try {
 $global:LASTEXITCODE = 0
 '@
     $workspacePath = New-WorkspaceFiles $root $repo $python 'research-session-1' $code
-    $workspace = Get-Content -LiteralPath $workspacePath -Raw | ConvertFrom-Json
+    $workspace = Get-Content -LiteralPath $workspacePath -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-SetupTest ($workspace.settings.'manimStudio.studioExecutable' -eq (Join-Path (Split-Path $python -Parent) 'studio.exe')) 'Absolute studio path is incorrect'
     Assert-SetupTest ($workspace.settings.'manimStudio.processEnv'.MANIM_STUDIO_RESEARCH_SESSION -eq 'research-session-1') 'RPC session environment missing'
     Assert-SetupTest ($workspace.settings.'terminal.integrated.env.windows'.MANIM_STUDIO_RESEARCH_SESSION -eq 'research-session-1') 'Terminal session environment missing'
@@ -34,11 +34,11 @@ $global:LASTEXITCODE = 0
     Assert-SetupTest ($workspace.settings.'terminal.integrated.env.windows'.PATH.StartsWith((Split-Path $python -Parent) + ';')) 'Project Python is not first on terminal PATH'
     Assert-SetupTest ($workspace.settings.'terminal.integrated.cwd' -eq $repo) 'Terminal starts outside the project'
     Assert-SetupTest ($workspace.settings.'python.terminal.activateEnvironment' -eq $false) 'Terminal requires activation script'
-    $folderSettings = Get-Content -LiteralPath (Join-Path $repo '.vscode/settings.json') -Raw | ConvertFrom-Json
+    $folderSettings = Get-Content -LiteralPath (Join-Path $repo '.vscode/settings.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-SetupTest ($folderSettings.'python.defaultInterpreterPath' -eq $python) 'Direct folder open loses the environment'
-    $mcp = Get-Content -LiteralPath (Join-Path $root 'mcp-client.json') -Raw | ConvertFrom-Json
+    $mcp = Get-Content -LiteralPath (Join-Path $root 'mcp-client.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-SetupTest ($mcp.mcpServers.'manim-studio'.cwd -eq $repo) 'MCP working directory mismatch'
-    $toml = Get-Content -LiteralPath (Join-Path $repo '.codex/config.toml') -Raw
+    $toml = Get-Content -LiteralPath (Join-Path $repo '.codex/config.toml') -Raw -Encoding UTF8
     Assert-SetupTest ($toml.Contains("MANIM_STUDIO_RESEARCH_SESSION = 'research-session-1'")) 'Codex session environment missing'
     $launcherTokens = $null
     $launcherErrors = $null
@@ -51,7 +51,7 @@ $global:LASTEXITCODE = 0
     $engine = Join-Path $PSHOME $engineName
     & $engine -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'Open-Manim-Research.ps1')
     Assert-SetupTest ($LASTEXITCODE -eq 0) 'Generated launcher failed'
-    $launched = Get-Content -LiteralPath (Join-Path $repo 'launched.json') -Raw | ConvertFrom-Json
+    $launched = Get-Content -LiteralPath (Join-Path $repo 'launched.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-SetupTest ($launched.arguments[0] -eq '--new-window' -and $launched.arguments[1] -eq $workspacePath) 'Launcher opened wrong workspace'
     Assert-SetupTest ($launched.cwd -eq $repo -and $launched.venv -eq $venv -and $launched.utf8 -eq '1') 'Launcher environment is incorrect'
     # Missing environment must fail instead of silently opening with global Python.
@@ -80,7 +80,7 @@ $global:LASTEXITCODE = 0
         $mockLinks = @(New-WorkstationShortcuts $root $repo $code $desktop $programs $fakeShellFactory)
         Assert-SetupTest ($mockLinks.Count -eq 2) 'Desktop and Start menu shortcuts were not both created'
         foreach ($path in $mockLinks) {
-            $link = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+            $link = Get-Content -LiteralPath $path -Raw -Encoding UTF8 | ConvertFrom-Json
             Assert-SetupTest ($link.WorkingDirectory -eq $repo -and $link.TargetPath -like '*powershell.exe') 'Shortcut target or directory mismatch'
             Assert-SetupTest ($link.Arguments -eq ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $root 'Open-Manim-Research.ps1') + '"')) 'Shortcut arguments were not quoted'
         }
@@ -109,7 +109,7 @@ $global:LASTEXITCODE = 0
     Assert-SetupTest (@(Get-ChildItem $root -Filter 'retained.txt.backup-*').Count -eq 0) 'Unchanged file was backed up unnecessarily'
     Set-GeneratedFile (Join-Path $root 'retained.txt') 'updated'
     $backup = @(Get-ChildItem $root -Filter 'retained.txt.backup-*')
-    Assert-SetupTest ($backup.Count -eq 1 -and (Get-Content -LiteralPath $backup[0].FullName -Raw) -eq 'original') 'Previous generated file was lost'
+    Assert-SetupTest ($backup.Count -eq 1 -and (Get-Content -LiteralPath $backup[0].FullName -Raw -Encoding UTF8) -eq 'original') 'Previous generated file was lost'
     function Fake-RebootInstaller { $global:LASTEXITCODE = 3010 }
     $reboot = $false
     try { Invoke-Checked 'Fake-RebootInstaller' @() @(0, 3010) }

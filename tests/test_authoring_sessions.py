@@ -319,6 +319,20 @@ class AuthoringSessionTests(unittest.TestCase):
         self.assertEqual("RETRY", failed["next_action"])
         self.assertEqual("draft render failed", failed["last_error"])
 
+    def test_rpc_unicode_round_trip_ignores_legacy_console_encoding(self) -> None:
+        with AuthoringFixture() as fixture:
+            env = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / 'src'),
+                       PYTHONIOENCODING='cp1252', PYTHONUTF8='0')
+            request = {'id': 17, 'method': 'start_session',
+                       'params': {'title': 'שיעור וקטורים', 'deck_id': 'unicode-test'}}
+            result = subprocess.run([sys.executable, '-m', 'manim_studio.cli', 'authoring', 'rpc',
+                                     '--repo-root', str(fixture.root)],
+                                    input=json.dumps(request, ensure_ascii=False)+'\n',
+                                    text=True, encoding='utf-8', capture_output=True, env=env, timeout=15, check=True)
+            response = json.loads(result.stdout)
+            self.assertTrue(response['ok'], response)
+            self.assertEqual(response['data']['title'], 'שיעור וקטורים')
+
     def test_rpc_error_preserves_request_id(self) -> None:
         with AuthoringFixture() as fixture:
             controller = fixture.controller()
