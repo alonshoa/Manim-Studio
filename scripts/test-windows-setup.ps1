@@ -8,7 +8,7 @@ $parseErrors = $null
 if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
 . $Script
 function Assert-SetupTest([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
-$root = Join-Path ([IO.Path]::GetTempPath()) ('studio setup test ' + [guid]::NewGuid().ToString('N'))
+$root = Join-Path ([IO.Path]::GetTempPath()) ('studio setup test ' + [char]0x05D0 + ' ' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $root | Out-Null
 try {
     # Generated settings and launchers preserve paths containing spaces and Unicode.
@@ -89,11 +89,32 @@ $global:LASTEXITCODE = 0
         foreach ($path in $mockLinks) { Remove-Item -LiteralPath $path }
     } finally { $env:SystemRoot = $savedSystemRoot }
     if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+        # Windows Shell may return a valid DOS 8.3 working directory for a Unicode path.
+        # Compare the actual filesystem target and keep raw paths in failure diagnostics.
+        if (-not ('StudioSetupTestPaths' -as [type])) {
+            Add-Type -TypeDefinition @'
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+public static class StudioSetupTestPaths {
+    [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true)]
+    private static extern uint GetLongPathName(string input, StringBuilder output, uint length);
+    public static string LongPath(string input) {
+        var buffer = new StringBuilder(32768);
+        uint length = GetLongPathName(Environment.ExpandEnvironmentVariables(input), buffer, (uint)buffer.Capacity);
+        if (length == 0 || length >= buffer.Capacity) throw new InvalidOperationException("Cannot resolve shortcut directory: " + input);
+        return buffer.ToString();
+    }
+}
+'@
+        }
         $shortcuts = @(New-WorkstationShortcuts $root $repo $code $desktop $programs)
         $shell = New-Object -ComObject WScript.Shell
         foreach ($path in $shortcuts) {
             $link = $shell.CreateShortcut($path)
-            Assert-SetupTest ($link.WorkingDirectory -eq $repo) 'Shortcut working directory mismatch'
+            $actualDirectory = [StudioSetupTestPaths]::LongPath($link.WorkingDirectory)
+            $expectedDirectory = [StudioSetupTestPaths]::LongPath($repo)
+            Assert-SetupTest ($actualDirectory -eq $expectedDirectory) "Shortcut working directory mismatch: expected '$repo'; actual '$($link.WorkingDirectory)'; resolved '$actualDirectory'"
             Assert-SetupTest ($link.Arguments -eq ('-NoProfile -ExecutionPolicy Bypass -File "' + (Join-Path $root 'Open-Manim-Research.ps1') + '"')) 'Shortcut launcher path was not quoted'
             Assert-SetupTest ($link.TargetPath -like '*powershell.exe') 'Shortcut target is not PowerShell'
             # SLDF_RUNAS_USER would reopen the editor as administrator.
