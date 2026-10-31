@@ -370,6 +370,7 @@ export class SessionCommandController {
       return;
     }
     const expected = identityFromStatus(status);
+    const researchContext = this.rpc.getResearchContext?.();
     this.renderInFlight = true;
     this.preview.show();
     this.preview.setRendering(status);
@@ -384,7 +385,7 @@ export class SessionCommandController {
         return;
       }
       if (shouldApplyRenderResult(expected, response.data ?? {}, await this.activeSessionId())) {
-        this.preview.updateRender(response.data ?? {});
+        this.preview.updateRender({...response.data, research_session_id: researchContext?.session_id});
         this.output.appendLine(JSON.stringify(response.data));
       }
     } catch (error) {

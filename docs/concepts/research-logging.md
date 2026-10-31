@@ -26,7 +26,7 @@ automatic classification model. The bridge also supports host-generated suggesti
 
 Explicit lifecycle, topic selection, independent pause/resume, source/client binding,
 and the VS Code research controls are documented in [research sessions](research-sessions.md).
-The additive v4 schema keeps existing ledger/capture identities, management
+The additive v5 schema keeps existing ledger/capture identities, management
 state and stable request receipts, and versions annotation events. Native client delivery remains a separate acceptance gate.
 
 ## Automatic Codex capture
@@ -232,7 +232,7 @@ content collection; pausing mid-action may leave a start without a finish. A cra
 logging failure may also leave an incomplete action. Instrumentation warnings go to
 stderr, never the JSON-RPC stdout protocol. They indicate a collection gap.
 
-Each event has schema version (v4 in new session/export records), durable project ID (config/export),
+Each event has schema version (v5 in new session/export records), durable project ID (config/export),
 UUID event/session IDs, optional prompt and parent IDs, UTC timestamp, actor, stage,
 payload and SQLite sequence number. Sequence defines ledger insertion order; concurrent
 operations can overlap. Event types:
@@ -301,3 +301,11 @@ host's prompt/response adapter on a complete small workflow, including a plannin
 turn, an edit, a failed render and an actual user classification. Do not label existing
 operation traces as complete prompt capture. Adaptive checkpoint policy, measured
 quality changes, blinded evaluation and the held-out C/D experiment remain later work.
+
+## Retained research evidence
+
+The [artifacts and decisions panel](research-artifacts.md) archives configured source
+snapshots, proposal candidates/baselines and bounded immutable build evidence. It
+keeps missing/omitted content and unknown decision origins explicit. Schema v5 adds
+backed-up transactional migrations. Read the feature guide for retention quotas,
+capture-boundary behavior, commands and the remaining native Windows acceptance gate.

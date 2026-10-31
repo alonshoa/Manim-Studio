@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "required_payload_entries": [
+    "out/artifactsPanel.js",
+    "out/previewPanel.js",
+    "out/studioClient.js",
+    "media/artifacts.html",
+    "media/artifacts.js",
+    "media/artifacts.css",
+    "media/classification.html",
+    "media/classification.js",
+    "media/classification.css",
+    "package.json"
+  ],
+  "source_matches_compiled_payload": true,
+  "sha256": "c29c6216febe5f60d0e68787a43cbd2e9dbcf0d5147b03088579da8e624a3d86",
+  "native_installation_tested": false
+}

@@ -14,7 +14,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 CLASSIFICATION_UNSET = object()
 PROMPT_TYPES = ('initial', 'continuation', 'corrective', 'irrelevant')
 REASONS = ('factual_math', 'narrative_order', 'unclear_explanation', 'add_content',
@@ -44,28 +44,8 @@ class ResearchLog:
         self.directory.mkdir(parents=True, exist_ok=True)
         with closing(sqlite3.connect(self.database, timeout=timeout)) as db, db:
             db.row_factory = sqlite3.Row
-            db.executescript('''
-                CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS events (
-                    seq INTEGER PRIMARY KEY AUTOINCREMENT,
-                    id TEXT NOT NULL UNIQUE, session_id TEXT NOT NULL,
-                    prompt_id TEXT, parent_id TEXT, type TEXT NOT NULL,
-                    timestamp TEXT NOT NULL, actor TEXT NOT NULL, stage TEXT NOT NULL,
-                    payload TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS blobs (sha256 TEXT PRIMARY KEY, content BLOB NOT NULL);
-                CREATE TABLE IF NOT EXISTS research_sessions (
-                    session_id TEXT PRIMARY KEY, title TEXT NOT NULL, topic TEXT NOT NULL,
-                    state TEXT NOT NULL, revision INTEGER NOT NULL, capture_epoch INTEGER NOT NULL,
-                    created_at TEXT NOT NULL, finished_at TEXT);
-                CREATE TABLE IF NOT EXISTS research_sources (
-                    source_id TEXT PRIMARY KEY, thread_id TEXT NOT NULL UNIQUE,
-                    session_id TEXT UNIQUE, transcript_path TEXT, last_turn_id TEXT,
-                    last_hook_at TEXT NOT NULL, connected INTEGER NOT NULL, protocol_version INTEGER NOT NULL);
-                CREATE TABLE IF NOT EXISTS research_clients (
-                    client_id TEXT PRIMARY KEY, session_id TEXT NOT NULL, client_type TEXT NOT NULL);
-                CREATE TABLE IF NOT EXISTS research_requests (
-                    request_id TEXT PRIMARY KEY, fingerprint TEXT NOT NULL, result TEXT NOT NULL);
-            ''')
+            from manim_studio.research_schema import migrate
+            migrate(db, self.database, timeout=timeout)
             yield db
 
     @property
@@ -202,32 +182,27 @@ class ResearchLog:
 
     def snapshot(self, db):
         """Bounded source-only snapshots; omissions are explicit, never follow symlinks."""
+        from manim_studio.research_files import candidates, read_project_file
+        from manim_studio.research_artifacts import CAPTURE, ResearchArtifacts
+        context = CAPTURE.get()
+        if context and context.get('session_id') and context.get('capture_snapshots',True):
+            snapshot = ResearchArtifacts(self.root).checkpoint(db, context['session_id'], prompt_id=context.get('prompt_id'))
+            return {'files': snapshot['files'], 'omitted': snapshot['omitted'], 'snapshot_id': snapshot['snapshot_id'], 'scope': 'configured research source policy'}
         files, omitted = {}, []
-        candidates = [self.root / 'catalog' / 'scenes.yaml']
-        for directory in ('scenes', 'decks', '.manim-studio/authoring'):
-            base = self.root / directory
-            if base.is_symlink():
-                omitted.append(directory)
-                continue
-            if base.exists():
-                candidates.extend(p for p in base.rglob('*') if p.suffix in ('.py', '.json'))
+        paths, omissions = candidates(self.root)
+        omitted = [item["path"] for item in omissions]
         total = 0
-        for path in sorted(set(candidates)):
-            relative = path.relative_to(self.root).as_posix()
-            if not path.exists():
-                continue
-            if path.is_symlink() or any(p.is_symlink() for p in path.parents if p != self.root) or not path.is_file():
+        for relative in paths:
+            try:
+                content = read_project_file(self.root, relative, min(1_000_000, max(0, 10_000_000-total)))
+            except (OSError, ValueError):
                 omitted.append(relative)
                 continue
-            if path.stat().st_size > 1_000_000 or total + path.stat().st_size > 10_000_000:
-                omitted.append(relative)
-                continue
-            content = path.read_bytes()
             total += len(content)
             sha = hashlib.sha256(content).hexdigest()
             db.execute('INSERT OR IGNORE INTO blobs VALUES (?,?)', (sha, content))
             files[relative] = sha
-        return {'files': files, 'omitted': omitted, 'scope': 'catalog/scenes.yaml, scenes|decks|.manim-studio/authoring *.py|*.json'}
+        return {'files': files, 'omitted': omitted, 'scope': 'bounded configured source files'}
 
     def begin_action(self, session_id, name, arguments, prompt_id=None, source=None):
         self._require_enabled()
@@ -284,13 +259,28 @@ class ResearchLog:
                          'source', 'related_prompt_ids', 'capture_status', 'code', 'status',
                          'source_id', 'thread_id', 'client_id', 'client_type', 'research_epoch',
                          'reason', 'boundary_verified', 'coverage_start', 'offset', 'taxonomy_version',
-                         'previous_human_head', 'suggestion_id', 'classifier', 'request_id')}
+                         'previous_human_head', 'suggestion_id', 'classifier', 'request_id',
+                         'artifact_id', 'sha256', 'size', 'role', 'build_id', 'proposal_id', 'revision',
+                         'decision_id', 'kind', 'origin', 'reported_by', 'action_id', 'before_snapshot_id',
+                         'after_snapshot_id', 'snapshot_id', 'files', 'omitted', 'missing', 'candidate')}
                 records.append(event)
             if include_content:
                 import base64
                 for row in db.execute('SELECT * FROM blobs ORDER BY sha256'):
                     records.append({'schema_version': SCHEMA_VERSION, 'type': 'source.blob',
                                     'sha256': row[0], 'base64': base64.b64encode(row[1]).decode('ascii')})
+                from manim_studio.research_artifacts import ResearchArtifacts
+                archive = ResearchArtifacts(self.root)
+                included = {r.get('sha256') for r in records if r.get('type') == 'source.blob'}
+                for row in db.execute('SELECT payload FROM research_artifacts'):
+                    artifact = json.loads(row[0])
+                    sha = artifact.get('sha256')
+                    if artifact['status'] != 'retained' or sha in included or artifact['role'] in ('preview_video','final_product'):
+                        continue
+                    content = archive._read_content(sha, artifact['size'])
+                    records.append({'schema_version': SCHEMA_VERSION, 'type': 'source.blob',
+                                    'sha256': sha, 'base64': base64.b64encode(content).decode('ascii')})
+                    included.add(sha)
         with destination.open('x', encoding='utf-8') as output:
             for record in records:
                 output.write(_json(record) + '\n')
@@ -327,6 +317,12 @@ def instrument(function):
             return function(*args, **kwargs)
         if not session_id:
             return function(*args, **kwargs)
+        from manim_studio.research_artifacts import CAPTURE
+        inherited = CAPTURE.get()
+        context_token = CAPTURE.set(inherited or dict(root=str(log.root), session_id=session_id, prompt_id=prompt_id,
+            client_id=getattr(ctx, 'research_client_id', None), request_id=getattr(ctx,'research_request_id',None), origin=getattr(ctx, 'research_decision_origin', 'unknown'),
+            origin_evidence=getattr(ctx, 'research_origin_evidence', None)))
+        CAPTURE.get()['capture_snapshots'] = function.__name__ not in ('authoring.list_sessions','authoring.get_status','authoring.list_proposals','authoring.discover_active_proposal')
         action_id = None
         started = time.monotonic()
         try:
@@ -337,6 +333,8 @@ def instrument(function):
                             'boundary': 'rpc' if function.__name__.startswith('authoring.') else 'service'})
         except Exception as exc:
             warnings.warn(f'Research logging failed before {function.__name__}: {exc}', RuntimeWarning)
+        if action_id:
+            CAPTURE.get()['action_id'] = action_id
         result, error = None, None
         try:
             result = function(*args, **kwargs)
@@ -353,6 +351,7 @@ def instrument(function):
                                    time.monotonic() - started, prompt_id, error)
                 except Exception as exc:
                     warnings.warn(f'Research logging failed after {function.__name__}: {exc}', RuntimeWarning)
+            CAPTURE.reset(context_token)
     return wrapped
 
 
@@ -365,7 +364,7 @@ def instrument_rpc(function):
     @functools.wraps(function)
     def wrapped(self, method, params):
         params = dict(params)
-        if method.startswith(('research.', 'classification.')):
+        if method.startswith(('research.', 'classification.', 'artifacts.')):
             return function(self, method, params)
         explicit = '_research' in params
         metadata = params.pop('_research', {})
@@ -376,7 +375,10 @@ def instrument_rpc(function):
             research_session_id=metadata.get('session_id') if explicit else os.environ.get('MANIM_STUDIO_RESEARCH_SESSION'),
             research_prompt_id=metadata.get('prompt_id') if explicit else os.environ.get('MANIM_STUDIO_RESEARCH_PROMPT'),
             research_client_id=metadata.get('client_id') if explicit else os.environ.get('MANIM_STUDIO_RESEARCH_CLIENT'),
-            research_context_origin='explicit' if explicit else 'environment')
+            research_context_origin='explicit' if explicit else 'environment',
+            research_decision_origin=metadata.get('decision_origin') if metadata.get('decision_origin') in ('human', 'automation') else 'unknown',
+            research_origin_evidence=metadata.get('origin_evidence') if isinstance(metadata.get('origin_evidence'), str) else None,
+            research_request_id=metadata.get('request_id') if isinstance(metadata.get('request_id'),str) else None)
 
         def invoke(method, params, context=None):
             return function(self, method, params)

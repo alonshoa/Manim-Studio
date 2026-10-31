@@ -1,4 +1,5 @@
 import { ChildProcessWithoutNullStreams, spawn } from "child_process";
+import { randomUUID } from "crypto";
 import * as readline from "readline";
 
 export type RpcResponse = {
@@ -67,8 +68,11 @@ export class StudioRpcClient {
 
   async request(method: string, params: Record<string, unknown> = {}, timeoutMs = this.requestTimeoutMs): Promise<RpcResponse> {
     // Snapshot request-local context before any later UI selection change.
-    if (!method.startsWith("research.") && !method.startsWith("classification.") && this.researchContextControlled && !("_research" in params)) {
+    if (!method.startsWith("research.") && !method.startsWith("classification.") && !method.startsWith("artifacts.") && this.researchContextControlled && !("_research" in params)) {
       params = { ...params, _research: { ...(this.researchContext ?? {}) } };
+    }
+    if (["accept_proposal", "reject_proposal", "revise_proposal", "pause_session"].includes(method) && params._research && typeof params._research === "object") {
+      params = { ...params, _research: { ...(params._research as Record<string, unknown>), decision_origin: "human", origin_evidence: "vscode_explicit_command", request_id: (params._research as Record<string, unknown>).request_id || randomUUID() } };
     }
     this.start();
     if (!this.process) {
@@ -109,6 +113,8 @@ export class StudioRpcClient {
     this.process.kill();
     this.process = undefined;
   }
+
+  getResearchContext(): Record<string, string> | undefined { return this.researchContext ? {...this.researchContext} : undefined; }
 
   setResearchContext(context: Record<string, string> | undefined): void {
     this.researchContextControlled = true;

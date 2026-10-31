@@ -4,6 +4,7 @@ import { SessionCommandController } from "./sessionCommands";
 import { StudioRpcClient } from "./studioClient";
 import { TerminalManager } from "./terminalManager";
 import { ResearchCommandController } from "./researchCommands";
+import { ArtifactsPanel } from "./artifactsPanel";
 import { ClassificationPanel } from "./classificationPanel";
 
 let client: StudioRpcClient | undefined;
@@ -12,6 +13,7 @@ let terminal: TerminalManager | undefined;
 let output: vscode.OutputChannel | undefined;
 let research: ResearchCommandController | undefined;
 let classifications: ClassificationPanel | undefined;
+let artifacts: ArtifactsPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel("Manim Studio");
@@ -37,11 +39,18 @@ export function activate(context: vscode.ExtensionContext): void {
     config.get<Record<string, string>>("processEnv") || {}, "classification");
   classifications = new ClassificationPanel(context, annotationClient);
   classifications.register();
+  const artifactsClient = new StudioRpcClient(workspace.uri.fsPath, config.get<string>("studioExecutable") || "studio",
+    "catalog/scenes.yaml", message => output?.appendLine(message), 15000,
+    config.get<Record<string, string>>("processEnv") || {}, "classification");
+  artifacts = new ArtifactsPanel(context, artifactsClient);
+  artifacts.register();
   const preview = new ManimPreviewPanel(context, workspace.uri.fsPath, (action) => {
     if (!controller) {
       return Promise.resolve();
     }
     return controller.handlePreviewAction(action);
+  }, async state => {
+    if(state.researchSessionId && state.buildId) await artifacts?.recordPresentation(state.researchSessionId,state.buildId);
   });
   controller = new SessionCommandController(context, output, statusBar, client, preview, terminal);
   controller.register(context);
@@ -64,6 +73,7 @@ function createClient(repoRoot: string, log: vscode.OutputChannel): StudioRpcCli
 }
 
 function disposeAll(): void {
+  artifacts?.dispose(); artifacts = undefined;
   classifications?.dispose(); classifications = undefined;
   research?.dispose();
   research = undefined;

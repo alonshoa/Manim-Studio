@@ -116,7 +116,11 @@ class ResearchSessions:
             arguments = {k: v for k, v in payload.items() if k != 'request_id'}
             result = getattr(self, '_' + action)(db, **arguments)
             db.execute('INSERT INTO research_requests VALUES (?,?,?)', (request, fingerprint, _json(result)))
-            return result
+        if action == 'create':
+            from manim_studio.research_artifacts import ResearchArtifacts, quiet
+            quiet(ResearchArtifacts(self.log.root).dispatch, 'checkpoint',
+                  dict(session_id=result['session_id'], request_id='initial-snapshot:' + request))
+        return result
 
     def _revision(self, db, session_id, expected_revision):
         identifier(session_id, 'session_id')
@@ -167,7 +171,7 @@ class ResearchSessions:
             raise ResearchSessionError('source_already_bound')
         if db.execute('SELECT 1 FROM research_sources WHERE session_id=?', (session_id,)).fetchone():
             raise ResearchSessionError('session_already_bound')
-        if source['protocol_version'] != SCHEMA_VERSION:
+        if source['protocol_version'] not in range(3, SCHEMA_VERSION + 1):
             raise ResearchSessionError('unsupported_schema')
         from manim_studio.research_capture import CodexCapture
         CodexCapture._schema(db)

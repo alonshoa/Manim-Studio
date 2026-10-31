@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from manim_studio.research_artifacts import research_transition
+
 import json
 import re
 import tempfile
@@ -131,6 +133,7 @@ def propose_movie_step(
     )
 
 
+@research_transition('accept')
 def accept_movie_step(
     repo_root: Path | str,
     builds_root: Path | str,

@@ -45,6 +45,9 @@ class StudioContext:
     research_prompt_id: str | None = None
     research_client_id: str | None = None
     research_context_origin: str = 'explicit'
+    research_decision_origin: str = 'unknown'
+    research_origin_evidence: str | None = None
+    research_request_id: str | None = None
 
     def __post_init__(self) -> None:
         # Resolve aliases (including Windows 8.3 names) before containment checks.

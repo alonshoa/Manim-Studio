@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from manim_studio.research_artifacts import research_transition
+
 import ast
 import hashlib
 import json
@@ -266,6 +268,7 @@ class AuthoringSessionController:
             self._write_state(state)
         return self._compact(state, status="preview_ready", changed_lines=proposal["changed_lines"])
 
+    @research_transition('accept')
     def accept_proposal(
         self,
         session_id: str,
@@ -289,6 +292,8 @@ class AuthoringSessionController:
             )
         _assert_transition(state, "accept")
         proposal = self._prepare_candidate_source(state, proposal_id)
+        from manim_studio.research_artifacts import quiet, record_prepared_candidate
+        quiet(record_prepared_candidate, self.repo_root, self.builds_root, proposal_id)
         profile = get_profile("draft")
         validation = staged_edits.validate_scene_patch(
             self.repo_root,
@@ -345,6 +350,7 @@ class AuthoringSessionController:
             self._write_state(state)
         return self._compact(state, status="accepted", changed_lines=proposal["changed_lines"])
 
+    @research_transition('reject')
     def reject_proposal(self, session_id: str, proposal_id: str | None = None) -> dict[str, Any]:
         state = self._load_state(session_id)
         proposal_id = proposal_id or state.active_proposal_id
@@ -375,6 +381,7 @@ class AuthoringSessionController:
             self._write_state(state)
         return self._compact(state, status="rejected")
 
+    @research_transition('request_revision')
     def revise_proposal(
         self,
         session_id: str,
@@ -634,7 +641,7 @@ class AuthoringSessionController:
 
     @instrument_rpc
     def dispatch(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        if method.startswith(('research.', 'classification.')):
+        if method.startswith(('research.', 'classification.', 'artifacts.')):
             from manim_studio.research_cli import dispatch
             return dispatch(self.repo_root, method, params)
         if method == "start_session":

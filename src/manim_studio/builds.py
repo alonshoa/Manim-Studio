@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from manim_studio.research_artifacts import observe_build
+
 import json
 import os
 import platform
@@ -103,6 +105,7 @@ def command_for_entry(
     raise ValueError(f"unsupported renderer: {entry.renderer}")
 
 
+@observe_build
 def render_scene(
     repo_root: Path | str,
     entry: CatalogEntry,
@@ -256,6 +259,7 @@ def render_scene(
     )
 
 
+@observe_build
 def build_deck(
     repo_root: Path | str,
     deck_id: str,
@@ -367,6 +371,7 @@ def validate_deck_export(
     return normalized_format
 
 
+@observe_build
 def export_deck(
     repo_root: Path | str,
     deck_id: str,

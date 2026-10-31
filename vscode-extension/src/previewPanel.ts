@@ -26,6 +26,7 @@ export type PreviewState = {
   renderStatus?: "idle" | "rendering" | "success" | "failed";
   artifactPath?: string | null;
   buildId?: string | null;
+  researchSessionId?: string;
   renderError?: { message?: string; detail?: unknown } | null;
   updatedAt: string;
 };
@@ -34,12 +35,14 @@ export const PREVIEW_PANEL_TYPE = "manimStudio.preview";
 
 export class ManimPreviewPanel {
   private panel: vscode.WebviewPanel | undefined;
+  private presentationPath?: string | null;
   private state: PreviewState = { renderStatus: "idle", updatedAt: new Date().toISOString() };
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly workspaceRoot: string,
     private readonly onAction: (action: PreviewAction) => Promise<void>,
+    private readonly onPresented: (state: PreviewState) => Promise<void> = async () => undefined,
   ) {}
 
   show(): void {
@@ -60,7 +63,11 @@ export class ManimPreviewPanel {
     );
     this.panel.webview.html = this.html(this.panel.webview);
     this.panel.webview.onDidReceiveMessage(
-      async (message: { action?: PreviewAction }) => {
+      async (message: { action?: PreviewAction | "mediaLoaded"; buildId?: string }) => {
+        if(message.action === "mediaLoaded") {
+          if(message.buildId === this.state.buildId && this.state.renderStatus === "success" && this.state.artifactPath === this.presentationPath) await this.onPresented({...this.state});
+          return;
+        }
         if (message.action) {
           await this.onAction(message.action);
         }
@@ -112,9 +119,11 @@ export class ManimPreviewPanel {
       renderStatus: renderStatusValue(data.render_status) ?? this.state.renderStatus,
       artifactPath: stringValue(data.artifact_path) ?? null,
       buildId: stringValue(data.build_id) ?? null,
+      researchSessionId: stringValue(data.research_session_id),
       renderError: errorValue(data.render_error ?? data.error),
       updatedAt: new Date().toISOString(),
     };
+    this.presentationPath=this.state.artifactPath;
     this.postState();
   }
 
@@ -231,6 +240,8 @@ export class ManimPreviewPanel {
         stage.innerHTML = '<div class="empty">Rendering preview...</div>';
       } else if (mediaUri) {
         stage.innerHTML = '<video controls autoplay muted loop src="' + mediaUri + '"></video>';
+        const renderedBuildId = state.buildId;
+        stage.querySelector('video').addEventListener('loadedmetadata', () => vscode.postMessage({action:'mediaLoaded',buildId:renderedBuildId}), {once:true});
       } else {
         stage.innerHTML = '<div class="empty">No preview rendered yet.</div>';
       }

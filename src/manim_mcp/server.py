@@ -10,7 +10,7 @@ from manim_mcp import services
 
 
 def create_server(context: services.StudioContext | None = None) -> FastMCP:
-    base_ctx = context or services.default_context()
+    base_ctx = replace(context or services.default_context(), research_decision_origin="automation", research_origin_evidence="mcp_tool_call")
     ctx = base_ctx
     mcp = FastMCP("Manim Studio")
 
@@ -448,7 +448,7 @@ def create_server(context: services.StudioContext | None = None) -> FastMCP:
     ) -> dict:
         """Opt-in research bridge. Record host prompts/responses, classify later, or export.
 
-        Call schema for enums, or classification.schema/list/get for the annotation UI contract.
+        Call schema for enums, or classification.schema/list/get and artifacts.list/history/policy for the annotation UI contract.
         Human classification.save requires request_id and expected_human_head (null initially).
         This tool does not observe the external chat automatically.
         Use returned session/prompt IDs on subsequent authoring tool calls.

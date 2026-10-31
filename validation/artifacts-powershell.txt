@@ -1,0 +1,4 @@
+Trust this project in VS Code. Python, pip and Studio are ready; Codex sign-in is optional for local work.
+Previous generated file backed up: /tmp/studio setup test f8dd4f274e774341a95686d0b4ca1df2/retained.txt.backup-20261031-181413-121
+Windows setup parser, project environment, launcher, shortcut, backup, reboot and error tests passed.
+All PowerShell scripts parse; setup regressions passed on PowerShell 7/Linux.

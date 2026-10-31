@@ -177,7 +177,7 @@ class ResearchTests(unittest.TestCase):
         controller = AuthoringSessionController(self.root, check_executables=False)
         result = controller.dispatch('list_sessions', {'_research': {'session_id': self.session, 'prompt_id': self.prompt}})
         self.assertIsInstance(result, dict)
-        self.assertEqual(self.events()[-2]['payload']['name'], 'authoring.list_sessions')
+        self.assertEqual([event for event in self.events() if event['type']=='action.started'][-1]['payload']['name'], 'authoring.list_sessions')
         self.assertEqual(self.events()[-1]['prompt_id'], self.prompt)
 
     def test_action_exception_is_logged_and_preserved(self):

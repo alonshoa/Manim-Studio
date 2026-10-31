@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "checks": [
+    "decision origins and outcomes",
+    "missing coverage visible",
+    "snapshot and artifact list",
+    "exact baseline/candidate comparison",
+    "lost-reply idempotent retry",
+    "open archived source",
+    "purge retains history",
+    "no webview JavaScript errors"
+  ],
+  "screenshot": "research-artifacts.png"
+}

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from manim_studio.research_artifacts import research_transition
+
 import difflib
 import hashlib
 import json
@@ -234,6 +236,7 @@ def render_scene_patch(
     return _public_metadata(metadata), build
 
 
+@research_transition('accept')
 def apply_scene_patch(
     repo_root: Path | str,
     builds_root: Path | str,
@@ -287,6 +290,8 @@ def apply_scene_patch(
 
     staged_source = (_workspace_dir_from_metadata(metadata) / entry.source_path).resolve()
     patched = staged_source.read_text(encoding="utf-8")
+    from manim_studio.research_artifacts import verify_transition_candidate
+    verify_transition_candidate(root, staged_source)
     source_path.write_text(patched, encoding="utf-8")
     metadata["applied"] = {
         "status": "success",
@@ -297,12 +302,15 @@ def apply_scene_patch(
     return _public_metadata(metadata)
 
 
+@research_transition('reject')
 def reject_scene_patch(
     repo_root: Path | str,
     builds_root: Path | str,
     proposal_id: str,
 ) -> dict[str, Any]:
     metadata = _load_metadata(repo_root, builds_root, proposal_id)
+    from manim_studio.research_artifacts import verify_transition_candidate
+    verify_transition_candidate(repo_root, proposal_source_path(repo_root, builds_root, proposal_id))
     metadata["applied"] = {
         "status": "rejected",
         "rejected_at": _utc_now(),
@@ -487,6 +495,8 @@ def _copy_workspace(repo_root: Path, workspace_dir: Path) -> None:
 
 def _ignore_copy_items(_directory: str, names: list[str]) -> set[str]:
     ignored = {name for name in names if name in COPY_IGNORE}
+    if Path(_directory).name == ".manim-studio":
+        ignored.add("research")
     ignored.update(name for name in names if name.endswith(".egg-info"))
     return ignored
 
