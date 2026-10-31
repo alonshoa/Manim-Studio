@@ -108,6 +108,9 @@ class CodexCapture:
             '''CREATE TABLE IF NOT EXISTS capture_receipts (
                 thread_id TEXT NOT NULL, source_key TEXT NOT NULL, event_id TEXT,
                 PRIMARY KEY(thread_id,source_key))''',
+            '''CREATE TABLE IF NOT EXISTS capture_failures (
+                id TEXT PRIMARY KEY, timestamp TEXT NOT NULL,
+                thread_id TEXT, hook TEXT, error_type TEXT NOT NULL)''',
         ):
             db.execute(statement)
 
@@ -127,7 +130,55 @@ class CodexCapture:
                                 'observed_turn_ids': list(state.get('prompts', {})),
                                 'transcript_offset': state.get('offset')})
             enabled = db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()
-            return {'enabled': bool(enabled and enabled[0] == 'true'), 'threads': threads}
+            failures = [dict(r) for r in db.execute(
+                'SELECT * FROM capture_failures ORDER BY timestamp,id')]
+            return {'enabled': bool(enabled and enabled[0] == 'true'), 'threads': threads,
+                    'failures': failures,
+                    'unassigned_failure_count': sum(r['thread_id'] is None for r in failures)}
+
+    def record_failure(self, payload, error_type):
+        """Persist content-free CLI diagnostics without trusting rejected input.
+
+        Link a gap only to an already observed thread in the stated project.
+        Otherwise keep a project-level failure, without creating a fake session.
+        Storage failure still propagates to the CLI's stderr-only fallback.
+        """
+        if not self.log.database.exists():
+            return False
+        with self.log.connection() as db:
+            self._schema(db)
+            db.execute('BEGIN IMMEDIATE')
+            enabled = db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()
+            if not enabled or enabled[0] != 'true':
+                return False
+            thread, row, hook = None, None, None
+            if isinstance(payload, dict):
+                hook = payload.get('hook_event_name')
+                hook = hook if hook in HOOKS else None
+                try:
+                    cwd = Path(_identifier(payload.get('cwd'), 'cwd')).resolve()
+                    candidate = _identifier(payload.get('session_id'), 'session_id')
+                    if cwd.is_relative_to(self.log.root):
+                        row = db.execute('SELECT * FROM capture_threads WHERE thread_id=?',
+                                         (candidate,)).fetchone()
+                        if row:
+                            thread = candidate
+                except (ValueError, TypeError, OSError):
+                    pass
+            failure_id, timestamp = str(uuid.uuid4()), _now()
+            db.execute('INSERT INTO capture_failures VALUES (?,?,?,?,?)',
+                       (failure_id, timestamp, thread, hook, error_type))
+            if row:
+                state = json.loads(row['state'])
+                state['gap_count'] += 1
+                state['capture_status'] = 'partial'
+                self.log._event(db, 'capture.gap', row['session_id'], {
+                    'code': 'hook_delivery_rejected', 'capture_status': 'partial',
+                    'failure_id': failure_id,
+                    'source': {'client': 'codex', 'thread_id': thread, 'hook': hook}})
+                db.execute('UPDATE capture_threads SET state=? WHERE thread_id=?',
+                           (_json(state), thread))
+            return True
 
     def handle(self, payload: dict, *, delivery_id: str | None = None):
         """One hook invocation, one SQLite transaction (events + cursor + receipt).
@@ -387,7 +438,9 @@ class CodexCapture:
                     except (ValueError, TypeError, KeyError, UnicodeError):
                         self._gap('unrecognized_transcript_record')
                     self.state['offset'] = stream.tell()
-                if stream.tell() < size:
+                # readline may reach EOF on an incomplete record without
+                # consuming it. Only the committed cursor proves coverage.
+                if self.state['offset'] < size:
                     self.state['capture_status'] = 'partial'
                 elif not self.state['gap_count']:
                     self.state['capture_status'] = 'hooks_and_transcript_best_effort'
@@ -459,6 +512,10 @@ class CodexCapture:
         if fallback and item.get('phase') != 'commentary':
             self._remember(key, fallback['id'])
             self._remember('fallback:' + fallback['id'], fallback['id'])
+            # Reconciliation still advances the source's last visible response.
+            # A buffered commentary may have replaced the Stop fallback in state.
+            self.state['last_responses'][turn] = {'hash': _digest(text.encode('utf-8')),
+                                                  'phase': item.get('phase')}
             return
         self._response(text, turn, self._source(turn, item_id=item_id,
                        timestamp=timestamp, byte_offset=offset,

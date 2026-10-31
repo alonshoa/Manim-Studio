@@ -53,6 +53,15 @@ python -m manim_studio.research_cli --root /path/to/project capture-status
 
 Status lists observed thread/research-session IDs, last hook time, transcript byte
 offset and gap count. No observed threads means capture has not been demonstrated.
+Rejected CLI deliveries are persisted as content-free `failures` diagnostics. A
+rejection attributable to an observed thread adds a `hook_delivery_rejected` gap
+and marks that thread partial. Malformed or unidentifiable deliveries increment
+`unassigned_failure_count` without creating a session. Diagnostics contain only
+IDs, timestamps, recognized hook names and exception types; rejected message text
+is not retained. Paused collection does not retain these diagnostics. If storage
+itself fails, stderr reports that persistence was unavailable; status cannot prove
+completeness in that case. Project-level diagnostics are available through status,
+while attributable gap events also appear in exports.
 Only hooks whose `cwd` belongs to this project are accepted. Each Codex thread maps
 durably to a separate research session; no global last-prompt context is used.
 
@@ -224,8 +233,9 @@ operations can overlap. Event types:
 | `capture.gap` | Machine-readable gap code and source context |
 | `client.*` | Observed session, turn, interruption and compaction lifecycle |
 
-The v2 adapter adds `capture_threads` (thread mapping/state/cursor) and
-`capture_receipts` (source deduplication) tables without rewriting v1 events. Capture
+The v2 adapter adds `capture_threads` (thread mapping/state/cursor),
+`capture_receipts` (source deduplication), and `capture_failures` (content-free CLI
+rejection diagnostics) tables without rewriting v1 events. Capture
 pause epochs live in `config`. Existing v1 sessions remain readable/exportable.
 
 Actions are system execution events. An operation named `accept` does not establish

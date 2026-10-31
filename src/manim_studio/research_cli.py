@@ -41,6 +41,7 @@ def main():
                                          'record_response', 'classify', 'export', 'schema', 'status',
                                          'codex-connect', 'codex-config', 'codex-hook', 'capture-status'])
     args = parser.parse_args()
+    payload = None
     try:
         payload = json.load(sys.stdin) if args.action not in (
             'schema', 'status', 'codex-connect', 'codex-config', 'capture-status') else {}
@@ -52,6 +53,12 @@ def main():
         if args.action == 'codex-hook':
             # Keep Codex working even on malformed input/disk failure. No payload text.
             print('{}')
+            try:
+                from manim_studio.research_capture import CodexCapture
+                CodexCapture(args.root).record_failure(payload, type(exc).__name__)
+            except Exception as diagnostic_error:
+                print('Capture failure diagnostics could not be persisted '
+                      f'({type(diagnostic_error).__name__}).', file=sys.stderr)
             print(f'Manim Studio research capture failed ({type(exc).__name__}); '
                   'this invocation was not collected. Check capture-status.', file=sys.stderr)
             return
