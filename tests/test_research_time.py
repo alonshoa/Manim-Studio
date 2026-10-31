@@ -702,6 +702,34 @@ class SummaryTests(unittest.TestCase):
 
 
 class RunContextTests(unittest.TestCase):
+    def test_metadata_timeout_does_not_wait_for_descendant_output_eof(self):
+        # An isolated watchdog keeps the suite bounded even if PIPE cleanup
+        # regresses. The grandchild holds stdout open after its parent is killed.
+        code = """
+import subprocess,sys,time
+from manim_studio.research_context import command_output
+parent = "import subprocess,sys,time; subprocess.Popen([sys.executable,'-c','import time; time.sleep(15)']); time.sleep(15)"
+started=time.monotonic()
+try:
+    command_output([sys.executable,'-c',parent],timeout=0.5)
+except subprocess.TimeoutExpired:
+    print('bounded',flush=True)
+else:
+    raise AssertionError('expected a deadline')
+"""
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=8,
+            check=True,
+            env=dict(
+                os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / "src")
+            ),
+        )
+        self.assertEqual(result.stdout.strip(), "bounded")
+
     def test_windows_metadata_on_worker_never_queries_wmi_or_uname(self):
         from types import SimpleNamespace
 

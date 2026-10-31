@@ -11,6 +11,7 @@ import platform
 import subprocess
 import sys
 import sysconfig
+import tempfile
 import uuid
 from datetime import UTC, datetime
 
@@ -83,6 +84,30 @@ def os_metadata():
     }
 
 
+def command_output(command, timeout=0.5):
+    """Bounded metadata command, even when descendants inherit output handles.
+
+    Windows subprocess.run(capture_output=True) drains its PIPE readers after
+    killing a timed-out process, without a second deadline. A surviving child
+    can keep those pipes open indefinitely. A regular temporary output file
+    avoids waiting for EOF, and DEVNULL isolates commands from MCP's stdin.
+    """
+    with tempfile.TemporaryFile() as output:
+        result = subprocess.run(
+            command,
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            timeout=timeout,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        output.seek(0)
+        return output.read(65536).decode("utf-8")
+
+
 def runtime_probe(root):
     from manim_studio import __version__
     from manim_studio.research_schema import VERSION
@@ -96,37 +121,28 @@ def runtime_probe(root):
         "git": {"commit": None, "dirty": None, "provenance": "unavailable"},
     }
     try:
-        result = subprocess.run(
-            ["git", "-C", str(root), "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=0.5,
-            check=False,
+        commit = command_output(
+            ["git", "--no-optional-locks", "-C", str(root), "rev-parse", "HEAD"]
         )
-        if result.returncode == 0 and len(result.stdout.strip()) == 40:
+        if commit is not None and len(commit.strip()) == 40:
             data["git"] = {
-                "commit": result.stdout.strip(),
+                "commit": commit.strip(),
                 "dirty": None,
                 "provenance": "observed",
             }
-            state = subprocess.run(
+            state = command_output(
                 [
                     "git",
+                    "--no-optional-locks",
                     "-C",
                     str(root),
                     "status",
                     "--porcelain",
                     "--untracked-files=normal",
-                ],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                timeout=0.5,
-                check=False,
+                ]
             )
-            if state.returncode == 0:
-                data["git"]["dirty"] = bool(state.stdout.strip())
+            if state is not None:
+                data["git"]["dirty"] = bool(state.strip())
     except (OSError, subprocess.TimeoutExpired, UnicodeError):
         pass
     data["packages"] = {}
