@@ -280,11 +280,104 @@ Write-Host 'Trust this project in VS Code. Python, pip and Studio are ready; Cod
     return $workspaceFile
 }
 
+function New-UnicodeShortcutShell {
+    # WScript.Shell can round-trip shortcut fields through the system ANSI code page.
+    # Use the Unicode shell-link interface for paths, arguments and persistence.
+    if (-not ('StudioUnicodeShortcutShell' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.IO;
+using System.Text;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
+
+[ComImport, Guid("00021401-0000-0000-C000-000000000046")]
+internal class StudioNativeShellLink { }
+
+[ComImport, Guid("000214F9-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+internal interface StudioShellLinkW {
+    void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int size, IntPtr data, uint flags);
+    void GetIDList(out IntPtr value);
+    void SetIDList(IntPtr value);
+    void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int size);
+    void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string value);
+    void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int size);
+    void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string value);
+    void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int size);
+    void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string value);
+    void GetHotkey(out short value);
+    void SetHotkey(short value);
+    void GetShowCmd(out int value);
+    void SetShowCmd(int value);
+    void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder value, int size, out int index);
+    void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string value, int index);
+    void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string value, uint reserved);
+    void Resolve(IntPtr window, uint flags);
+    void SetPath([MarshalAs(UnmanagedType.LPWStr)] string value);
+}
+
+public sealed class StudioUnicodeShortcutFile {
+    private readonly string path;
+    public string TargetPath { get; set; }
+    public string Arguments { get; set; }
+    public string WorkingDirectory { get; set; }
+    public string Description { get; set; }
+    public string IconLocation { get; set; }
+    public int WindowStyle { get; set; }
+    public StudioUnicodeShortcutFile(string file) {
+        path = file;
+        TargetPath = Arguments = WorkingDirectory = Description = IconLocation = "";
+        WindowStyle = 1;
+        if (!File.Exists(file)) return;
+        object instance = new StudioNativeShellLink();
+        try {
+            ((IPersistFile)instance).Load(file, 0);
+            var link = (StudioShellLinkW)instance;
+            var text = new StringBuilder(32768);
+            link.GetPath(text, text.Capacity, IntPtr.Zero, 0); TargetPath = text.ToString();
+            text.Clear(); link.GetArguments(text, text.Capacity); Arguments = text.ToString();
+            text.Clear(); link.GetWorkingDirectory(text, text.Capacity); WorkingDirectory = text.ToString();
+            text.Clear(); link.GetDescription(text, text.Capacity); Description = text.ToString();
+            int show; link.GetShowCmd(out show); WindowStyle = show;
+            int icon; text.Clear(); link.GetIconLocation(text, text.Capacity, out icon);
+            if (text.Length > 0) IconLocation = text.ToString() + "," + icon;
+        } finally { Marshal.FinalReleaseComObject(instance); }
+    }
+    public void Save() {
+        object instance = new StudioNativeShellLink();
+        try {
+            var link = (StudioShellLinkW)instance;
+            link.SetPath(TargetPath);
+            link.SetArguments(Arguments);
+            link.SetWorkingDirectory(WorkingDirectory);
+            link.SetDescription(Description);
+            link.SetShowCmd(WindowStyle);
+            if (!String.IsNullOrEmpty(IconLocation)) {
+                int comma = IconLocation.LastIndexOf(',');
+                int index = 0;
+                string icon = IconLocation;
+                if (comma >= 0 && Int32.TryParse(IconLocation.Substring(comma + 1), out index)) icon = IconLocation.Substring(0, comma);
+                link.SetIconLocation(icon, index);
+            }
+            // New objects do not inherit an old shortcut's RunAs flag.
+            ((IPersistFile)instance).Save(path, true);
+        } finally { Marshal.FinalReleaseComObject(instance); }
+    }
+}
+
+public sealed class StudioUnicodeShortcutShell {
+    public StudioUnicodeShortcutFile CreateShortcut(string path) { return new StudioUnicodeShortcutFile(path); }
+}
+'@
+    }
+    return New-Object StudioUnicodeShortcutShell
+}
+
 function New-WorkstationShortcuts {
     param([string]$Root, [string]$Repository, [string]$Code,
         [string]$Desktop = [Environment]::GetFolderPath('DesktopDirectory'),
         [string]$Programs = [Environment]::GetFolderPath('Programs'),
-        [scriptblock]$ShellFactory = { New-Object -ComObject WScript.Shell })
+        [scriptblock]$ShellFactory = { New-UnicodeShortcutShell })
     $launcher = Join-Path $Root 'Open-Manim-Research.ps1'
     if (-not (Test-Path -LiteralPath $launcher)) { throw 'Cannot create shortcuts before the workspace launcher exists.' }
     if (-not $Desktop -or -not $Programs) { throw 'The current user desktop or Start menu location is unavailable.' }

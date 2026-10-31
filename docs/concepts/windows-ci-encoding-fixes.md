@@ -21,3 +21,9 @@ Regression tests start real child processes with PYTHONIOENCODING=cp1252 and PYT
 - Windows PowerShell 5.1, native runtime and packaging must pass on the fix commit in GitHub Actions. Local validation is not their substitute.
 
 Local results: validation/windows-ci-encoding-fixes.txt, validation/windows-ci-encoding-fixes.xml and validation/windows-ci-powershell-fixes.txt.
+
+## Native shortcut failure uncovered by the Unicode installation-root fixture
+
+The expanded fixture in [a874895](https://github.com/alonshoa/Manim-Studio/actions/runs/41221607013/job/124597160878) exposed a production defect: WScript.Shell attempted to save a shortcut under a Hebrew path after converting the character to `?`. The shortcut producer now uses IShellLinkW and IPersistFile directly, preserving Unicode target paths, arguments, working directories and .lnk filenames. It creates a fresh non-elevated shortcut object on save and releases the COM object after reading/writing. Native tests read the persisted Unicode link back and still check the complete launcher arguments and the RunAs flag. Directory comparison resolves legitimate DOS 8.3 aliases, while retaining diagnostics for an actually wrong destination.
+
+The Unicode COM helper compiles on PowerShell 7/Linux and the setup contract tests pass with a Hebrew installation root; actual COM round-trip validation runs on Windows CI. Local output: validation/windows-ci-unicode-shortcuts.txt.

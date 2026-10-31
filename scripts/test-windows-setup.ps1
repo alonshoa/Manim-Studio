@@ -109,7 +109,7 @@ public static class StudioSetupTestPaths {
 '@
         }
         $shortcuts = @(New-WorkstationShortcuts $root $repo $code $desktop $programs)
-        $shell = New-Object -ComObject WScript.Shell
+        $shell = New-UnicodeShortcutShell
         foreach ($path in $shortcuts) {
             $link = $shell.CreateShortcut($path)
             $actualDirectory = [StudioSetupTestPaths]::LongPath($link.WorkingDirectory)
