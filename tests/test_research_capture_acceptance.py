@@ -19,7 +19,7 @@ class CaptureAcceptanceTests(fixtures.CaptureTests):
 
     def cli(self, action, payload=None):
         result = subprocess.run(
-            [sys.executable, '-m', 'manim_studio.research_cli', '--root', str(self.root), action],
+            [sys.executable, '-X', 'utf8', '-m', 'manim_studio.research_cli', '--root', str(self.root), action],
             input=json.dumps(payload or {}, ensure_ascii=False), text=True,
             encoding='utf-8', capture_output=True,
             env=dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / 'src')),
@@ -63,6 +63,9 @@ class CaptureAcceptanceTests(fixtures.CaptureTests):
         records = [json.loads(line) for line in destination.read_text(encoding='utf-8').splitlines()]
         self.assertEqual(len(self.typed('prompt.recorded')), 1)
         self.assertEqual(len(self.typed('model.responded')), 2)
+        self.assertEqual(self.typed('prompt.recorded')[0]['payload']['text'], 'הוסף דוגמה')
+        self.assertEqual([e['payload']['text'] for e in self.typed('model.responded')],
+                         ['בודק את הדוגמה', 'הרינדור נכשל'])
         starts = {event['id']: event for event in self.typed('action.started')}
         finishes = self.typed('action.finished')
         self.assertEqual(len(finishes), 2)
