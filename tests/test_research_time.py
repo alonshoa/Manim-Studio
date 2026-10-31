@@ -12,7 +12,7 @@ from unittest.mock import patch
 
 from manim_studio.prompt_classifications import PromptClassifications
 from manim_studio.research import ResearchLog
-from manim_studio.research_context import record_context, runtime_probe
+from manim_studio.research_context import os_metadata, record_context, runtime_probe
 from manim_studio.research_sessions import ResearchSessionError, ResearchSessions
 from manim_studio.research_time import LEASE_SECONDS, ResearchTiming, summarize
 
@@ -702,6 +702,51 @@ class SummaryTests(unittest.TestCase):
 
 
 class RunContextTests(unittest.TestCase):
+    def test_windows_metadata_on_worker_never_queries_wmi_or_uname(self):
+        from types import SimpleNamespace
+
+        with (
+            patch("manim_studio.research_context.sys.platform", "win32"),
+            patch(
+                "manim_studio.research_context.sys.getwindowsversion",
+                create=True,
+                return_value=SimpleNamespace(major=10, minor=0, build=20348),
+            ),
+            patch(
+                "manim_studio.research_context.sysconfig.get_platform",
+                return_value="win-amd64",
+            ),
+            patch(
+                "manim_studio.research_context.platform.uname",
+                side_effect=AssertionError("unbounded WMI"),
+            ),
+            ThreadPoolExecutor(1) as worker,
+        ):
+            data = worker.submit(os_metadata).result(timeout=2)
+        self.assertEqual(data["system"], "Windows")
+        self.assertEqual(data["release"], "10.0.20348")
+        self.assertEqual(data["architecture"], "win-amd64")
+        self.assertEqual(data["architecture_source"], "python_build_platform")
+
+    def test_windows_version_unavailable_stays_null_without_wmi_fallback(self):
+        with (
+            patch("manim_studio.research_context.sys.platform", "win32"),
+            patch(
+                "manim_studio.research_context.sys.getwindowsversion",
+                create=True,
+                side_effect=OSError("unavailable"),
+            ),
+            patch(
+                "manim_studio.research_context.sysconfig.get_platform",
+                return_value="win-amd64",
+            ),
+            patch(
+                "manim_studio.research_context.platform.uname",
+                side_effect=AssertionError("unbounded WMI"),
+            ),
+        ):
+            self.assertIsNone(os_metadata()["release"])
+
     def test_metadata_is_filtered_before_storage_and_past_event_context_is_immutable(
         self,
     ):

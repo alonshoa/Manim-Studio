@@ -380,7 +380,11 @@ os._exit(30)
         shutil.copytree(Path(__file__).parent / 'fixtures' / 'external_project', self.root, dirs_exist_ok=True)
         environment = dict(os.environ, PYTHONPATH=str(Path(__file__).resolve().parents[1] / 'src'), MANIM_STUDIO_REPO_ROOT=str(self.root))
         async def run():
-            params = StdioServerParameters(command=sys.executable, args=['-X', 'utf8', '-m', 'manim_mcp.server'], env=environment, cwd=str(self.root))
+            # Dump the server/worker stacks before the client timeout masks a hang
+            # as a transport teardown error (notably on Windows).
+            diagnostic_server = ('import faulthandler; faulthandler.dump_traceback_later(20); '
+                                 'from manim_mcp.server import main; main()')
+            params = StdioServerParameters(command=sys.executable, args=['-X', 'utf8', '-c', diagnostic_server], env=environment, cwd=str(self.root))
             async with stdio_client(params) as (reader, writer):
                 async with ClientSession(reader, writer) as client:
                     await client.initialize()

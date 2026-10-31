@@ -6,8 +6,11 @@ import hashlib
 import importlib.metadata
 import json
 import math
+import os
 import platform
 import subprocess
+import sys
+import sysconfig
 import uuid
 from datetime import UTC, datetime
 
@@ -49,6 +52,37 @@ def filtered(value, keys):
     return clean
 
 
+def os_metadata():
+    """Read local OS facts without platform.uname's Windows WMI queries.
+
+    platform.system/release/machine all fill the same uname cache on Windows.
+    Its WMI queries have no caller-controlled timeout and may block an MCP
+    worker's first request. Use direct APIs instead; missing facts stay null.
+    """
+    if sys.platform == "win32":
+        release = None
+        try:
+            version = sys.getwindowsversion()
+            release = f"{version.major}.{version.minor}.{version.build}"
+        except (AttributeError, OSError):
+            pass
+        return {
+            "system": "Windows",
+            "release": release,
+            "architecture": sysconfig.get_platform(),
+            "architecture_source": "python_build_platform",
+        }
+    try:
+        info = os.uname()
+    except (AttributeError, OSError):
+        return {"system": sys.platform, "release": None, "architecture": None}
+    return {
+        "system": info.sysname,
+        "release": info.release,
+        "architecture": info.machine,
+    }
+
+
 def runtime_probe(root):
     from manim_studio import __version__
     from manim_studio.research_schema import VERSION
@@ -58,11 +92,7 @@ def runtime_probe(root):
         "schema_version": VERSION,
         "taxonomy_version": 1,
         "python_version": platform.python_version(),
-        "os": {
-            "system": platform.system(),
-            "release": platform.release(),
-            "architecture": platform.machine(),
-        },
+        "os": os_metadata(),
         "git": {"commit": None, "dirty": None, "provenance": "unavailable"},
     }
     try:
