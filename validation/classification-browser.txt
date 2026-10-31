@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "checks": [
+    "no model auto-approval",
+    "draft restoration",
+    "save",
+    "correction/history",
+    "conflict preserves draft",
+    "lost-reply idempotent retry",
+    "clear retains history",
+    "skip is not irrelevant",
+    "explicit empty reasons",
+    "authoring while annotation reply is delayed"
+  ],
+  "screenshots": [
+    "classification-editor.png",
+    "classification-history.png",
+    "classification-conflict.png"
+  ]
+}

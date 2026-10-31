@@ -275,6 +275,7 @@ export class ResearchCommandController {
       { label: "Finish", action: () => this.transition("finish") },
       { label: "Open research terminal", action: () => this.openTerminal() },
       { label: "Show status", action: () => this.showStatus() },
+      { label: "Classify prompts", action: async () => {await vscode.commands.executeCommand("manimStudio.research.classifyPrompts");} },
       { label: "Retry pending action", action: () => this.retryPending() },
     ], { placeHolder: "Research session" });
     if (picked) { await picked.action(); }

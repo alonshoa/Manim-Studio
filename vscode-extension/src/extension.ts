@@ -4,12 +4,14 @@ import { SessionCommandController } from "./sessionCommands";
 import { StudioRpcClient } from "./studioClient";
 import { TerminalManager } from "./terminalManager";
 import { ResearchCommandController } from "./researchCommands";
+import { ClassificationPanel } from "./classificationPanel";
 
 let client: StudioRpcClient | undefined;
 let controller: SessionCommandController | undefined;
 let terminal: TerminalManager | undefined;
 let output: vscode.OutputChannel | undefined;
 let research: ResearchCommandController | undefined;
+let classifications: ClassificationPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel("Manim Studio");
@@ -29,6 +31,12 @@ export function activate(context: vscode.ExtensionContext): void {
   const researchBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
   research = new ResearchCommandController(context, client, terminal, researchBar, output);
   research.register();
+  const config = vscode.workspace.getConfiguration("manimStudio");
+  const annotationClient = new StudioRpcClient(workspace.uri.fsPath, config.get<string>("studioExecutable") || "studio",
+    "catalog/scenes.yaml", message => output?.appendLine(message), 5000,
+    config.get<Record<string, string>>("processEnv") || {}, "classification");
+  classifications = new ClassificationPanel(context, annotationClient);
+  classifications.register();
   const preview = new ManimPreviewPanel(context, workspace.uri.fsPath, (action) => {
     if (!controller) {
       return Promise.resolve();
@@ -56,6 +64,7 @@ function createClient(repoRoot: string, log: vscode.OutputChannel): StudioRpcCli
 }
 
 function disposeAll(): void {
+  classifications?.dispose(); classifications = undefined;
   research?.dispose();
   research = undefined;
   controller?.dispose();

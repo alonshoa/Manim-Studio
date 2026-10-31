@@ -1,0 +1,18 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> manim-studio-authoring@0.1.0 test
+> npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js && node test/research-commands.test.js && node test/classification-panel.test.js
+
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+
+> manim-studio-authoring@0.1.0 compile
+> tsc -p .
+
+extension manifest ok
+rpc client reliability source checks ok
+rpc client timeout behavior ok
+preview panel behavior ok
+session command behavior ok
+terminal manager behavior ok
+research UI behavior ok
+classification panel behavior ok

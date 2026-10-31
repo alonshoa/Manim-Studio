@@ -7,7 +7,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "ut
 const commands = manifest.contributes.commands.map((command) => command.command);
 
 assert.deepStrictEqual(commands.sort(), [
-  ...["startSession", "selectSession", "attachSource", "pauseSession", "resumeSession", "finishSession", "showStatus", "openTerminal", "retryPending", "menu"].map(name => `manimStudio.research.${name}`),
+  ...["startSession", "selectSession", "attachSource", "pauseSession", "resumeSession", "finishSession", "showStatus", "openTerminal", "retryPending", "menu", "classifyPrompts"].map(name => `manimStudio.research.${name}`),
   "manimStudio.acceptActiveProposal",
   "manimStudio.continueAuthoring",
   "manimStudio.finishSession",

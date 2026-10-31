@@ -6,6 +6,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
@@ -27,6 +28,12 @@ class ResearchTests(unittest.TestCase):
         self.session = self.log.start_session('test', {'provider': 'test', 'model': 'fake-v1'})
         self.prompt = self.log.record_prompt(self.session, 'הוסף דוגמה', stage='storyboard')
 
+    def annotate(self, session_id, prompt_id, *args, **kwargs):
+        from manim_studio.prompt_classifications import PromptClassifications
+        state = PromptClassifications(self.root).dispatch('get', {'session_id': session_id, 'prompt_id': prompt_id})
+        return self.log.classify(session_id, prompt_id, *args, **kwargs,
+                                request_id=str(uuid.uuid4()), expected_human_head=state['human_head_event_id'])
+
     def events(self):
         with self.log.connection() as db:
             return [dict(r, payload=json.loads(r['payload'])) for r in db.execute('SELECT * FROM events ORDER BY seq')]
@@ -41,12 +48,12 @@ class ResearchTests(unittest.TestCase):
 
     def test_missing_classification_stays_missing_and_sources_remain_separate(self):
         self.assertIsNone(self.events()[-1]['payload']['classification'])
-        self.log.classify(self.session, self.prompt, 'corrective', ['add_content'], source='model')
-        self.log.classify(self.session, self.prompt, 'continuation', [], source='human', human_seconds=3)
-        self.log.classify(self.session, self.prompt, None, None)
+        self.annotate(self.session, self.prompt, 'corrective', ['add_content'], source='model')
+        self.annotate(self.session, self.prompt, 'continuation', [], source='human', human_seconds=3)
+        self.annotate(self.session, self.prompt, None, None)
         events = self.events()
         self.assertEqual([e['type'] for e in events[-3:]],
-                         ['classification.suggested', 'classification.confirmed', 'classification.confirmed'])
+                         ['classification.suggested', 'classification.confirmed', 'classification.cleared'])
         self.assertEqual(events[-2]['payload']['prompt_type'], 'continuation')
         self.assertIsNone(events[-1]['payload']['prompt_type'])
         self.assertIsNone(events[-1]['payload']['reasons'])
@@ -55,9 +62,9 @@ class ResearchTests(unittest.TestCase):
         other_session = self.log.start_session()
         for call in (
             lambda: self.log.record_response(other_session, self.prompt, 'wrong'),
-            lambda: self.log.classify('unknown', self.prompt),
+            lambda: self.annotate('unknown', self.prompt),
             lambda: self.log.record_response(self.session, None, 'wrong'),
-            lambda: self.log.classify(self.session, None),
+            lambda: self.annotate(self.session, None),
             lambda: self.log.begin_action(other_session, 'render', {}, self.prompt),
         ):
             with self.assertRaises(ValueError):
@@ -68,7 +75,7 @@ class ResearchTests(unittest.TestCase):
                        {'human_seconds': float('nan')}, {'human_seconds': True},
                        {'source': 'model', 'human_seconds': 1}, {'other': 'free text'}):
             with self.assertRaises(ValueError):
-                self.log.classify(self.session, self.prompt, **kwargs)
+                self.annotate(self.session, self.prompt, **kwargs)
 
     def test_reconstructs_before_after_content_and_deletions_from_export(self):
         source = self.root / 'decks' / 'scene.py'
@@ -95,7 +102,7 @@ class ResearchTests(unittest.TestCase):
 
     def test_metadata_export_excludes_sensitive_payload_and_cannot_overwrite(self):
         self.log.record_response(self.session, self.prompt, 'secret response')
-        self.log.classify(self.session, self.prompt, 'corrective', ['other'], other='secret note')
+        self.annotate(self.session, self.prompt, 'corrective', ['other'], other='secret note')
         path = self.root / 'metadata.jsonl'
         self.log.export(path)
         content = path.read_text()

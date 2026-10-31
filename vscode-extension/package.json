@@ -37,7 +37,8 @@
     "onCommand:manimStudio.research.showStatus",
     "onCommand:manimStudio.research.openTerminal",
     "onCommand:manimStudio.research.retryPending",
-    "onCommand:manimStudio.research.menu"
+    "onCommand:manimStudio.research.menu",
+    "onCommand:manimStudio.research.classifyPrompts"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -202,12 +203,16 @@
       {
         "command": "manimStudio.research.menu",
         "title": "Manim Studio Research: Session Menu"
+      },
+      {
+        "command": "manimStudio.research.classifyPrompts",
+        "title": "Manim Studio Research: Classify Prompts"
       }
     ]
   },
   "scripts": {
     "compile": "tsc -p .",
-    "test": "npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js && node test/research-commands.test.js"
+    "test": "npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js && node test/research-commands.test.js && node test/classification-panel.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

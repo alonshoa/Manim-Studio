@@ -1,0 +1,5 @@
+........................................................................ [ 47%]
+........................................................................ [ 94%]
+........                                                                 [100%]
+- generated xml file: /workspace/scratch/51bcb1cc4bb9/Manim-Studio/validation/classification-tests.xml -
+152 passed in 8.25s

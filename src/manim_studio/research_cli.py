@@ -9,6 +9,9 @@ from manim_studio.research import ResearchLog, PROMPT_TYPES, REASONS, STAGES
 
 def dispatch(root: Path, action: str, payload: dict):
     log = ResearchLog(root)
+    if action.startswith('classification.'):
+        from manim_studio.prompt_classifications import PromptClassifications
+        return PromptClassifications(root).dispatch(action.removeprefix('classification.'), payload)
     if action.startswith('research.'):
         from manim_studio.research_sessions import ResearchSessions
         return ResearchSessions(root).dispatch(action.removeprefix('research.'), payload)
@@ -37,15 +40,38 @@ def dispatch(root: Path, action: str, payload: dict):
     return operations[action](**payload)
 
 
+def rpc_loop(root):
+    """Dedicated annotation transport, separate from the synchronous authoring queue."""
+    for line in sys.stdin:
+        request_id = None
+        try:
+            request = json.loads(line)
+            request_id = request.get('id')
+            method = request.get('method', '')
+            if not isinstance(request_id, int) or not isinstance(method, str) or not (method.startswith('classification.') or method in ('research.list', 'research.get')):
+                raise ValueError('invalid annotation RPC request')
+            result = dispatch(root, method, request.get('params', {}))
+            response = {'id': request_id, 'ok': True, 'data': result}
+        except Exception as exc:
+            response = {'id': request_id, 'ok': False, 'error': {
+                'code': getattr(exc, 'code', 'invalid_request'), 'message': str(exc)}}
+        print(json.dumps(response, ensure_ascii=False), flush=True)
+    return 0
+
+
 def main():
     from manim_studio.research_sessions import ACTIONS
+    from manim_studio.prompt_classifications import ACTIONS as ANNOTATIONS
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('action', choices=['configure', 'start_session', 'record_prompt',
                                          'record_response', 'classify', 'export', 'schema', 'status',
                                          'codex-connect', 'codex-config', 'codex-hook', 'capture-status'] +
-                                        ['research.' + action for action in ACTIONS])
+                                        ['research.' + action for action in ACTIONS] +
+                                        ['classification.' + action for action in ANNOTATIONS] + ['rpc'])
     args = parser.parse_args()
+    if args.action == 'rpc':
+        return rpc_loop(args.root)
     payload = None
     try:
         payload = json.load(sys.stdin) if args.action not in (

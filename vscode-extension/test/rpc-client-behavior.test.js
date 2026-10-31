@@ -4,6 +4,7 @@ const { PassThrough } = require("stream");
 const Module = require("module");
 
 let observedSpawnOptions;
+let observedSpawnArgs;
 const payloads = [];
 const originalLoad = Module._load;
 Module._load = function patchedLoad(request, parent, isMain) {
@@ -46,9 +47,14 @@ async function main() {
   assert.strictEqual(payloads.at(-2).params._research, undefined);
   assert.deepStrictEqual(payloads.at(-1).params._research, {});
   client.dispose();
+  const annotations = new StudioRpcClient("C:/repo", "studio", "catalog/scenes.yaml", () => undefined, 30000, {}, "classification");
+  await annotations.request("classification.schema", {}, 5).catch(() => undefined);
+  assert.deepStrictEqual(observedSpawnArgs, ["research", "rpc", "--repo-root", "C:/repo"]);
+  annotations.dispose();
 }
 
 function fakeSpawn(_command, _args, options) {
+  observedSpawnArgs = _args;
   observedSpawnOptions = options;
   const process = new EventEmitter();
   process.stdout = new PassThrough();

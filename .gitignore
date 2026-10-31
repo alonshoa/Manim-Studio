@@ -20,6 +20,8 @@ pip-wheel-metadata/
 
 # Manim and presentation output
 media/
+!vscode-extension/media/
+!vscode-extension/media/**
 slides/
 builds/
 .manim-studio/

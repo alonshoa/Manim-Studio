@@ -57,7 +57,8 @@ class CaptureAcceptanceTests(fixtures.CaptureTests):
         hook('SessionStart', source='resume')
         prompt = self.typed('prompt.recorded')[0]['id']
         self.cli('classify', dict(session_id=session, prompt_id=prompt,
-                                 prompt_type='corrective', reasons=['technical_render']))
+                                 prompt_type='corrective', reasons=['technical_render'],
+                                 request_id='acceptance-label', expected_human_head=None))
         destination = self.root / 'complete.jsonl'
         self.cli('export', dict(destination=str(destination), include_content=True))
         records = [json.loads(line) for line in destination.read_text(encoding='utf-8').splitlines()]

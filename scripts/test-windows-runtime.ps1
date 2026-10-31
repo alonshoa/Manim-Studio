@@ -23,7 +23,7 @@ Invoke-Checked $python @('-m', 'pip', 'install', '--prefer-binary', '--only-bina
 if ($Stage -in @('all', 'test')) {
 Invoke-Checked $python @('-m', 'manim_studio.cli', 'doctor')
 # Run the suites that cover research capture, service integration and native setup.
-Invoke-Checked $python @('-m', 'pytest', 'tests/test_research.py', 'tests/test_research_capture.py', 'tests/test_research_capture_acceptance.py', 'tests/test_research_sessions.py', 'tests/test_windows_fonts.py',
+Invoke-Checked $python @('-m', 'pytest', 'tests/test_research.py', 'tests/test_research_capture.py', 'tests/test_research_capture_acceptance.py', 'tests/test_research_sessions.py', 'tests/test_prompt_classifications.py', 'tests/test_windows_fonts.py',
     'tests/test_studio_cli.py', 'tests/test_manim_mcp_services.py', 'tests/test_authoring_sessions.py', '-q', '--junitxml=runtime-test-results.xml')
 }
 if ($Stage -in @('all', 'render')) {

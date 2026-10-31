@@ -1119,6 +1119,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Manim Studio project tools.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
+    research_parser = subparsers.add_parser('research', help='Research annotation tools.')
+    research_commands = research_parser.add_subparsers(dest='research_command', required=True)
+    research_rpc = research_commands.add_parser('rpc', help='Dedicated prompt annotation RPC transport.')
+    research_rpc.add_argument('--repo-root', default=None)
     profile_choices = profile_names()
 
     list_parser = subparsers.add_parser(
@@ -1625,6 +1629,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == 'research':
+        from manim_studio.research_cli import rpc_loop
+        return rpc_loop(Path(args.repo_root or Path.cwd()).resolve())
 
     if args.command == "list":
         return run_list(repo_root=args.repo_root, catalog_path=args.catalog)

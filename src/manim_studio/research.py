@@ -14,7 +14,8 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
+CLASSIFICATION_UNSET = object()
 PROMPT_TYPES = ('initial', 'continuation', 'corrective', 'irrelevant')
 REASONS = ('factual_math', 'narrative_order', 'unclear_explanation', 'add_content',
            'remove_content', 'visual_animation', 'intent_mismatch', 'technical_render', 'other')
@@ -39,9 +40,9 @@ class ResearchLog:
         self.database = self.directory / 'events.sqlite3'
 
     @contextmanager
-    def connection(self):
+    def connection(self, timeout=30):
         self.directory.mkdir(parents=True, exist_ok=True)
-        with closing(sqlite3.connect(self.database, timeout=30)) as db, db:
+        with closing(sqlite3.connect(self.database, timeout=timeout)) as db, db:
             db.row_factory = sqlite3.Row
             db.executescript('''
                 CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -182,27 +183,22 @@ class ResearchLog:
                                {'text': text, 'model': model}, prompt_id=prompt_id, actor='model')
 
     def classify(self, session_id, prompt_id, prompt_type=None, reasons=None, other=None,
-                 source='human', human_seconds=None):
-        self._require_enabled()
-        if not prompt_id:
-            raise ValueError('classification requires a prompt ID')
-        if source not in ('human', 'model') or prompt_type not in (*PROMPT_TYPES, None):
-            raise ValueError('invalid classification source or prompt type')
-        if reasons is not None and (not isinstance(reasons, list) or
-                                   any(r not in REASONS for r in reasons)):
-            raise ValueError('invalid reasons')
-        if other and (not reasons or 'other' not in reasons):
-            raise ValueError('free text requires other reason')
-        if human_seconds is not None and (source != 'human' or
-            isinstance(human_seconds, bool) or not math.isfinite(human_seconds) or human_seconds < 0):
-            raise ValueError('invalid self-reported human time')
-        with self.connection() as db:
-            return self._event(db, 'classification.confirmed' if source == 'human' else
-                               'classification.suggested', session_id,
-                               {'prompt_type': prompt_type, 'reasons': reasons, 'other': other,
-                                'human_seconds': human_seconds,
-                                'time_source': 'self_report' if human_seconds is not None else None},
-                               prompt_id=prompt_id, actor=source)
+                 source='human', human_seconds=None, request_id=None,
+                 expected_human_head=CLASSIFICATION_UNSET, taxonomy_version=1,
+                 suggestion_id=None, classifier=None):
+        from manim_studio.prompt_classifications import PromptClassifications
+        if source not in ('human', 'model'):
+            raise ValueError('invalid classification source')
+        service = PromptClassifications(self.root)
+        state = service.dispatch('get', {'session_id': session_id, 'prompt_id': prompt_id})
+        payload = dict(project_id=state['project_id'], session_id=session_id, prompt_id=prompt_id,
+                       prompt_type=prompt_type, reasons=reasons, other=other, human_seconds=human_seconds,
+                       taxonomy_version=taxonomy_version, suggestion_id=suggestion_id, classifier=classifier,
+                       request_id=request_id or (_id() if source == 'model' else None))
+        if expected_human_head is not CLASSIFICATION_UNSET:
+            payload['expected_human_head'] = expected_human_head
+        action = 'suggest' if source == 'model' else 'clear' if prompt_type is None else 'save'
+        return service.dispatch(action, payload)['event_id']
 
     def snapshot(self, db):
         """Bounded source-only snapshots; omissions are explicit, never follow symlinks."""
@@ -287,7 +283,8 @@ class ResearchLog:
                          'human_seconds', 'time_source', 'name', 'duration_seconds', 'state',
                          'source', 'related_prompt_ids', 'capture_status', 'code', 'status',
                          'source_id', 'thread_id', 'client_id', 'client_type', 'research_epoch',
-                         'reason', 'boundary_verified', 'coverage_start', 'offset')}
+                         'reason', 'boundary_verified', 'coverage_start', 'offset', 'taxonomy_version',
+                         'previous_human_head', 'suggestion_id', 'classifier', 'request_id')}
                 records.append(event)
             if include_content:
                 import base64
@@ -368,7 +365,7 @@ def instrument_rpc(function):
     @functools.wraps(function)
     def wrapped(self, method, params):
         params = dict(params)
-        if method.startswith('research.'):
+        if method.startswith(('research.', 'classification.')):
             return function(self, method, params)
         explicit = '_research' in params
         metadata = params.pop('_research', {})

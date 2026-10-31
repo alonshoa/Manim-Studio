@@ -18,15 +18,16 @@ reason with measured improvement. Existing authoring behavior stays unchanged.
 **MCP alone cannot observe external chat.** The optional Codex adapter below receives
 client hooks, including planning-only turns that invoke no Manim tool. Other clients
 must still submit prompts/responses to the bridge. Never infer prompts from tool arguments.
-There is no built-in automatic classification model or VS Code classification UI yet.
-Use the bridge for manual labeling or to submit host-generated suggestions.
+The [VS Code classification panel](prompt-classification-ui.md) supports retrospective
+human annotation and displays existing model suggestions separately. There is no built-in
+automatic classification model. The bridge also supports host-generated suggestions.
 
 ## Managed research sessions
 
 Explicit lifecycle, topic selection, independent pause/resume, source/client binding,
 and the VS Code research controls are documented in [research sessions](research-sessions.md).
-The additive v3 schema keeps existing ledger/capture identities and adds management
-state and stable request receipts. Native client delivery remains a separate acceptance gate.
+The additive v4 schema keeps existing ledger/capture identities, management
+state and stable request receipts, and versions annotation events. Native client delivery remains a separate acceptance gate.
 
 ## Automatic Codex capture
 
@@ -153,10 +154,16 @@ are returned in `data`. Keep IDs from the actual response.
 | `record_prompt` | `{"session_id":"SESSION_ID", "text":"Explain the dot product", "stage":"lesson_plan", "model":{"model":"model-name","version":null}}` |
 | `record_response` | `{"session_id":"SESSION_ID", "prompt_id":"PROMPT_ID", "text":"Model response", "model":{"model":"model-name","version":null}}` |
 | `classify` | `{"session_id":"SESSION_ID", "prompt_id":"PROMPT_ID", "source":"model", "prompt_type":"corrective", "reasons":["narrative_order","unclear_explanation"]}` |
-| `classify` | `{"session_id":"SESSION_ID", "prompt_id":"PROMPT_ID", "source":"human", "prompt_type":"corrective", "reasons":["narrative_order"], "human_seconds":12}` |
+| `classify` | `{"session_id":"SESSION_ID", "prompt_id":"PROMPT_ID", "source":"human", "prompt_type":"corrective", "reasons":["narrative_order"], "human_seconds":12, "request_id":"UNIQUE_REQUEST_ID", "expected_human_head":null}` |
 | `export` | `{"destination":"/path/to/new-metadata.jsonl"}` |
 | `export` | `{"destination":"/path/to/new-full.jsonl", "include_content":true}` |
 | `configure` | `{"enabled":false}` |
+
+Before a human write, call `classification.get` with session/prompt IDs and copy its
+`human_head_event_id` into `expected_human_head` (explicit null for the first write).
+Use a new unique `request_id` for each decision; retry the exact same payload with
+the same ID after an unknown outcome. Old human writers missing these fields are
+rejected rather than silently overwriting a concurrent decision.
 
 `schema` and `status` take no stdin. Model/provider/revision/settings are supplied by
 the host, never guessed. Supply exact available model/deployment versions, generation
@@ -175,8 +182,10 @@ skip instrumentation while the normal authoring operation proceeds.
 
 The host must only submit `source: human` after an actual user choice. A model suggestion
 is never confirmation. This local API trusts its caller; it cannot authenticate human
-intent. Deferring/skipping classification requires no call. A later human classification
-with null type/reasons explicitly clears that classification; history remains intact.
+intent. `classification.skip` records an explicit deferral; it is not an irrelevant
+classification. `classification.clear` invalidates the current human classification
+without deleting history. The legacy `classify` human call with null type/reasons
+also clears, subject to the same versioned-write contract.
 
 ## Classification v1
 
@@ -223,7 +232,7 @@ content collection; pausing mid-action may leave a start without a finish. A cra
 logging failure may also leave an incomplete action. Instrumentation warnings go to
 stderr, never the JSON-RPC stdout protocol. They indicate a collection gap.
 
-Each event has schema version (v3 in new session/export records), durable project ID (config/export),
+Each event has schema version (v4 in new session/export records), durable project ID (config/export),
 UUID event/session IDs, optional prompt and parent IDs, UTC timestamp, actor, stage,
 payload and SQLite sequence number. Sequence defines ledger insertion order; concurrent
 operations can overlap. Event types:
@@ -234,7 +243,9 @@ operations can overlap. Event types:
 | `prompt.recorded` | Original prompt, model metadata, null initial classification |
 | `model.responded` | Response text and model metadata |
 | `classification.suggested` | Model-supplied type/reasons |
-| `classification.confirmed` | Human-supplied type/reasons and optional self-reported time |
+| `classification.confirmed` | Versioned human type/reasons and optional self-reported time |
+| `classification.skipped` | Explicit deferral without a human classification |
+| `classification.cleared` | Invalidates current human classification, preserving history |
 | `action.started` | Operation, arguments, before snapshot |
 | `action.finished` | Result or exception, elapsed seconds, after snapshot; parent=start ID |
 | `capture.gap` | Machine-readable gap code and source context |

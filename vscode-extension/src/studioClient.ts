@@ -31,13 +31,15 @@ export class StudioRpcClient {
     private readonly log: (message: string) => void = () => undefined,
     private readonly requestTimeoutMs = 30000,
     private readonly environment: NodeJS.ProcessEnv = {},
+    private readonly transport: "authoring" | "classification" = "authoring",
   ) {}
 
   start(): void {
     if (this.process) {
       return;
     }
-    const args = buildRpcArgs(this.repoRoot, this.catalog);
+    const args = this.transport === "classification" ? ["research", "rpc", "--repo-root", this.repoRoot]
+      : buildRpcArgs(this.repoRoot, this.catalog);
     this.process = spawn(this.studioExecutable, args, { cwd: this.repoRoot, env: { ...process.env, ...this.environment } });
     this.log(`${this.studioExecutable} ${args.join(" ")}`);
     const reader = readline.createInterface({ input: this.process.stdout });
@@ -65,7 +67,7 @@ export class StudioRpcClient {
 
   async request(method: string, params: Record<string, unknown> = {}, timeoutMs = this.requestTimeoutMs): Promise<RpcResponse> {
     // Snapshot request-local context before any later UI selection change.
-    if (!method.startsWith("research.") && this.researchContextControlled && !("_research" in params)) {
+    if (!method.startsWith("research.") && !method.startsWith("classification.") && this.researchContextControlled && !("_research" in params)) {
       params = { ...params, _research: { ...(this.researchContext ?? {}) } };
     }
     this.start();
