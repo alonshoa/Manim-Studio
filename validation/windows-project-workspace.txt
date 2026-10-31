@@ -1,0 +1,3 @@
+Trust this project in VS Code. Python, pip and Studio are ready; Codex sign-in is optional for local work.
+Previous generated file backed up: /tmp/studio setup test 03217b33a71841a1a9919a578bbed96a/retained.txt.backup-20261031-165353-706
+Windows setup parser, project environment, launcher, shortcut, backup, reboot and error tests passed.

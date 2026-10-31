@@ -54,8 +54,9 @@ Branch: $SourceBranch
 2. Right-click Start-Setup.cmd and select Run as administrator under your normal account.
    Or run setup-windows-research.ps1 from an elevated 64-bit Windows PowerShell.
 3. Restart and rerun if setup exits with code 3010. No automatic reboot is requested.
-4. After success, close the administrator window and use the generated normal-user launcher.
-5. Sign in to Codex manually and trust the project in VS Code.
+4. After success, close the administrator window and open Manim Studio from the desktop or Start menu.
+5. Trust the project in VS Code. Python and pip use the project's .venv without manual activation.
+   Codex sign-in is optional and separate from local editing/rendering.
 
 This bundle includes an exact Git source snapshot and a prebuilt VS Code extension.
 Internet is still required for Windows tools, Python packages, MiKTeX and Codex.

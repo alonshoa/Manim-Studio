@@ -89,12 +89,12 @@ does not install an automatic logon task. A non-reboot failure exits with code 1
 | TeX | MiKTeX, package database/update, initial formula/Hebrew packages and automatic package installation |
 | Fonts | DejaVu 2.37 archive from the official download, verified with published SHA-256, installed in Windows |
 | Source | Clone the specified research branch; safely fast-forward an existing clean checkout |
-| Python | Separate `venv` outside the checkout; install the project's pinned runtime dependencies and dev extra |
+| Python | Project-local `Manim-Studio\.venv`; install runtime dependencies and dev extra, run `pip check` and import/entry-point verification |
 | Native wheels | Require binary wheels for PyCairo/ManimPango on Python 3.12 x64; no ad-hoc C toolchain compilation |
 | Local extension | `npm ci`, compile TypeScript, package VSIX and install in desktop VS Code |
 | AI client | Codex CLI and official Codex VS Code extension; Python extension installed too |
 | Research | Enable local SQLite logging and create/reuse a bootstrap research session |
-| Configuration | `.code-workspace`, JSON MCP example, project-scoped Codex MCP TOML, and a normal-user launcher |
+| Configuration | Workspace and folder settings, project Python/terminal/RPC environment, MCP configuration, normal-user launcher, desktop and Start menu shortcuts |
 | Checks | `studio doctor`, research tests, and a short Cairo-rendered video with Hebrew text and a LaTeX formula |
 
 The native path is chosen because the current interactive authoring extension is
@@ -111,7 +111,20 @@ for later scenes and needs Internet access unless those packages are cached.
 
 ## Open the workstation
 
-Close the administrator setup window. In **normal** PowerShell:
+Close the administrator setup window, then double-click **Manim Studio** on your
+desktop or select it from the **Manim Studio** folder in the Start menu. This opens
+a new VS Code window in the configured project as a normal user. Trust the project
+when prompted. Codex sign-in is not needed to edit Python, install packages, run
+Manim or use local Studio commands.
+
+The working folder is `%USERPROFILE%\Manim-Research\Manim-Studio` by default.
+Its `.venv` contains Python, pip, Manim and the project's installed dependencies.
+VS Code's Python interpreter, new integrated terminals and Studio RPC all use this
+environment. Terminals start in the project folder with `.venv\Scripts` first on
+PATH and `VIRTUAL_ENV` set; no `Activate.ps1` or manual activation is needed.
+The same settings are written to `.vscode\settings.json` for direct folder opening.
+
+The alternative launcher remains available in **normal** PowerShell:
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\Manim-Research\Open-Manim-Research.ps1"
@@ -122,19 +135,31 @@ when VS Code asks. The generated workspace configures the exact virtual environm
 Studio executable, RPC process environment and terminal environment. Explicit RPC
 environment settings also work if VS Code was already open before the launcher ran.
 
-Sign in to Codex from the extension (or run `codex login` in the configured terminal).
+To use AI assistance, separately sign in to Codex from the extension (or run `codex login` in the configured terminal).
 Setup does not sign in for you, save credentials or choose a model. Project-local
 Codex MCP settings are loaded only after project trust. In Codex, check `/mcp` or
 `codex mcp list` for `manim-studio`, then test `list_decks`.
 The generic `mcp-client.json` is a configuration example for other compatible hosts;
 it is not automatically imported into every client.
 
-**The workstation is prepared, but complete prompt/response capture is still not
-implemented.** This setup enables tool-action logging and exposes the existing
-research bridge. It does not add the external host adapter discussed in
-[research logging v1](../concepts/research-logging.md). Use a new research session
-for each actual study workflow, and pass its IDs explicitly or update the workspace
-RPC/terminal/MCP session settings together. No prompt ID is guessed or set globally.
+For the experiment, follow [research session management](../concepts/research-sessions.md)
+and [capture setup](../concepts/research-logging.md): create a research session and
+explicitly attach its observed conversation. Local environment readiness does not
+verify actual Codex event delivery. Native capture acceptance remains separate.
+
+In a new VS Code terminal, check the selected environment with:
+
+```powershell
+python -c "import sys; print(sys.executable)"
+python -m pip check
+studio doctor
+```
+
+The executable should end in `Manim-Studio\.venv\Scripts\python.exe`. New
+packages should be installed with `python -m pip install PACKAGE` in this terminal.
+If a terminal was open before setup, close it and create a new one. If an existing
+VS Code workspace has a manually selected old interpreter, use **Python: Select
+Interpreter** once to select the project's `.venv`.
 
 ## Files and reruns
 
@@ -142,12 +167,21 @@ The destination contains:
 
 - `Manim-Studio\`: research checkout; local research database is inside its
   gitignored `.manim-studio\research\` directory.
-- `venv\`: dedicated Python environment.
+- `Manim-Studio\.venv\`: dedicated project Python environment.
 - `downloads\`: verified font archive, built VSIX and initialization helper.
 - `setup-logs\`: installation transcripts, including the command that failed.
 - `research-session.json`: bootstrap session ID, reused on a setup rerun.
 - `Manim-Research.code-workspace` and `Open-Manim-Research.ps1`.
 - `mcp-client.json` and `setup-report.json`.
+
+Setup publishes the per-user desktop and Start menu shortcuts only after the required
+checks succeed. `setup-report.json` records the project, exact Python executable,
+virtual environment and shortcut locations. Repeating setup updates the same shortcuts.
+On upgrade from the old layout, packages are installed into the new project `.venv`
+and generated settings are updated. The old sibling `venv` is retained; no user
+environment or project work is deleted. An already downloaded ZIP keeps its pinned
+installer/source revision: these changes require an updated package or updated
+source installer, not a rerun of the old ZIP.
 
 The project-local `.codex\config.toml` is gitignored and contains machine paths,
 not credentials. Existing generated files are backed up before replacement. The

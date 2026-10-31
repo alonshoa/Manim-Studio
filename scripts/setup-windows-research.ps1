@@ -100,21 +100,21 @@ function Install-SetupPackage {
 }
 
 function Write-Utf8 {
-    param([string]$Path, [string]$Text)
+    param([string]$Path, [string]$Text, [switch]$Utf8Bom)
     $parent = Split-Path -Parent $Path
     New-Item -ItemType Directory -Path $parent -Force | Out-Null
-    [IO.File]::WriteAllText($Path, $Text, [Text.UTF8Encoding]::new($false))
+    [IO.File]::WriteAllText($Path, $Text, [Text.UTF8Encoding]::new([bool]$Utf8Bom))
 }
 
 function Set-GeneratedFile {
-    param([string]$Path, [string]$Text)
+    param([string]$Path, [string]$Text, [switch]$Utf8Bom)
     if (Test-Path -LiteralPath $Path) {
         if ([IO.File]::ReadAllText($Path) -eq $Text) { return }
         $backup = "$Path.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss-fff')"
         Copy-Item -LiteralPath $Path -Destination $backup
         Write-Host "Previous generated file backed up: $backup"
     }
-    Write-Utf8 $Path $Text
+    Write-Utf8 $Path $Text -Utf8Bom:$Utf8Bom
 }
 
 function Ensure-TeXPackages {
@@ -206,25 +206,30 @@ function New-WorkspaceFiles {
     $toolPath = "$scriptsPath;$env:Path"
     $studio = Join-Path $scriptsPath 'studio.exe'
     $mcp = Join-Path $scriptsPath 'manim-mcp.exe'
+    $venv = Split-Path -Parent $scriptsPath
+    $environment = @{
+        PATH = $toolPath; VIRTUAL_ENV = $venv; PYTHONUTF8 = '1'
+        MANIM_STUDIO_REPO_ROOT = $Repository; MANIM_STUDIO_RESEARCH_SESSION = $ResearchSession
+    }
     $workspace = [ordered]@{
         folders = @(@{ path = $Repository })
         settings = [ordered]@{
             'python.defaultInterpreterPath' = $Python
+            # Terminals use the environment directly, without Activate.ps1 or a policy change.
+            'python.terminal.activateEnvironment' = $false
+            'terminal.integrated.cwd' = $Repository
+            'manimStudio.pythonExecutable' = $Python
             'manimStudio.studioExecutable' = $studio
             'manimStudio.previewMode' = 'embedded'
-            'manimStudio.processEnv' = @{
-                PATH = $toolPath; MANIM_STUDIO_REPO_ROOT = $Repository
-                MANIM_STUDIO_RESEARCH_SESSION = $ResearchSession; PYTHONUTF8 = '1'
-            }
-            'terminal.integrated.env.windows' = @{
-                PATH = $toolPath; MANIM_STUDIO_REPO_ROOT = $Repository
-                MANIM_STUDIO_RESEARCH_SESSION = $ResearchSession; PYTHONUTF8 = '1'
-            }
+            'manimStudio.processEnv' = $environment
+            'terminal.integrated.env.windows' = $environment
         }
         extensions = @{ recommendations = @('ms-python.python', 'openai.chatgpt', 'manim-studio.manim-studio-authoring') }
     }
     $workspaceFile = Join-Path $Root 'Manim-Research.code-workspace'
     Set-GeneratedFile $workspaceFile ($workspace | ConvertTo-Json -Depth 12)
+    # Opening the project folder directly must select the same environment too.
+    Set-GeneratedFile (Join-Path $Repository '.vscode/settings.json') ($workspace.settings | ConvertTo-Json -Depth 12)
     $mcpConfig = @{ mcpServers = @{ 'manim-studio' = @{
         command = $mcp; cwd = $Repository
         env = @{ PATH = $toolPath; MANIM_STUDIO_REPO_ROOT = $Repository; MANIM_STUDIO_RESEARCH_SESSION = $ResearchSession; PYTHONUTF8 = '1' }
@@ -251,18 +256,58 @@ PYTHONUTF8 = '1'
     $escapedCode = $Code.Replace("'", "''")
     $escapedPath = $toolPath.Replace("'", "''")
     $escapedWorkspace = $workspaceFile.Replace("'", "''")
+    $escapedPython = $Python.Replace("'", "''")
+    $escapedVenv = $venv.Replace("'", "''")
+    $escapedStudio = $studio.Replace("'", "''")
     $launcher = @"
 # Run this launcher in a NORMAL, non-administrator PowerShell after setup.
+`$ErrorActionPreference = 'Stop'
+foreach (`$required in @('$escapedPython', '$escapedStudio', '$escapedWorkspace', '$escapedCode')) {
+    if (-not (Test-Path -LiteralPath `$required)) { throw "Installation file missing: `$required. Rerun setup to repair the environment." }
+}
 `$env:PATH = '$escapedPath'
+`$env:VIRTUAL_ENV = '$escapedVenv'
 `$env:PYTHONUTF8 = '1'
 `$env:MANIM_STUDIO_REPO_ROOT = '$escapedRepo'
 `$env:MANIM_STUDIO_RESEARCH_SESSION = '$ResearchSession'
 Set-Location -LiteralPath '$escapedRepo'
 & '$escapedCode' --new-window '$escapedWorkspace'
-Write-Host 'Trust this project in VS Code, then sign in to Codex. Complete-chat capture still needs the host adapter.'
+if (`$LASTEXITCODE -ne 0) { throw 'VS Code could not open the configured project.' }
+Write-Host 'Trust this project in VS Code. Python, pip and Studio are ready; Codex sign-in is optional for local work.'
 "@
-    Set-GeneratedFile (Join-Path $Root 'Open-Manim-Research.ps1') $launcher
+    # Windows PowerShell 5.1 requires a BOM to preserve Hebrew user/project paths.
+    Set-GeneratedFile (Join-Path $Root 'Open-Manim-Research.ps1') $launcher -Utf8Bom
     return $workspaceFile
+}
+
+function New-WorkstationShortcuts {
+    param([string]$Root, [string]$Repository, [string]$Code,
+        [string]$Desktop = [Environment]::GetFolderPath('DesktopDirectory'),
+        [string]$Programs = [Environment]::GetFolderPath('Programs'),
+        [scriptblock]$ShellFactory = { New-Object -ComObject WScript.Shell })
+    $launcher = Join-Path $Root 'Open-Manim-Research.ps1'
+    if (-not (Test-Path -LiteralPath $launcher)) { throw 'Cannot create shortcuts before the workspace launcher exists.' }
+    if (-not $Desktop -or -not $Programs) { throw 'The current user desktop or Start menu location is unavailable.' }
+    $shell = & $ShellFactory
+    $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $icon = Join-Path (Split-Path (Split-Path $Code -Parent) -Parent) 'Code.exe'
+    $paths = @()
+    foreach ($folder in @($Desktop, (Join-Path $Programs 'Manim Studio'))) {
+        if (-not $folder) { throw 'The current user desktop or Start menu location is unavailable.' }
+        New-Item -ItemType Directory -Path $folder -Force | Out-Null
+        $path = Join-Path $folder 'Manim Studio.lnk'
+        $shortcut = $shell.CreateShortcut($path)
+        $shortcut.TargetPath = $powershell
+        $shortcut.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $launcher + '"'
+        $shortcut.WorkingDirectory = $Repository
+        $shortcut.Description = 'Open Manim Studio with the project Python environment'
+        $shortcut.WindowStyle = 7
+        if (Test-Path -LiteralPath $icon) { $shortcut.IconLocation = "$icon,0" }
+        $shortcut.Save()
+        if (-not (Test-Path -LiteralPath $path)) { throw "Shortcut was not created: $path" }
+        $paths += $path
+    }
+    return $paths
 }
 
 function Install-ResearchWorkstation {
@@ -287,9 +332,9 @@ function Install-ResearchWorkstation {
             source_commit = $pinnedCommit
             bundled = ($null -ne $package)
             packages = @(Get-SetupPackages)
-            remaining = @('Verified DejaVu fonts', 'isolated Python venv outside checkout', 'pinned project dependencies',
+            remaining = @('Verified DejaVu fonts', 'project-local .venv', 'pinned project dependencies and pip check',
                 'compile and package local VS Code extension', 'Python/Codex extensions', 'research session and local logging',
-                'workspace, launcher and MCP configuration', 'doctor, real Cairo/TeX/Hebrew video smoke test')
+                'workspace, launcher, desktop/Start menu shortcuts and MCP configuration', 'doctor, real Cairo/TeX/Hebrew video smoke test')
             codex = (-not $SkipCodex)
             renderCheck = (-not $SkipRenderCheck)
         } | ConvertTo-Json -Depth 8 | Write-Output
@@ -339,11 +384,13 @@ function Install-ResearchWorkstation {
         Install-StudioFonts $cache
         $repo = Join-Path $root 'Manim-Studio'
         Initialize-Checkout $git $repo $Branch $pinnedCommit $bundle
-        $venv = Join-Path $root 'venv'
+        $venv = Join-Path $repo '.venv'
         if (-not (Test-Path -LiteralPath (Join-Path $venv 'Scripts\python.exe'))) { Invoke-Checked $python @('-m', 'venv', $venv) }
         $venvPython = Join-Path $venv 'Scripts\python.exe'
         Invoke-Checked $venvPython @('-m', 'pip', 'install', '--upgrade', 'pip', 'setuptools', 'wheel')
         Invoke-Checked $venvPython @('-m', 'pip', 'install', '--prefer-binary', '--only-binary=pycairo,manimpango', '-e', "$repo[dev]")
+        Invoke-Checked $venvPython @('-m', 'pip', 'check')
+        Invoke-Checked $venvPython @('-c', 'import sys,sysconfig,pathlib,manim,manim_slides,pptx,yaml,mcp,manim_studio; p=pathlib.Path(sys.argv[1]); assert pathlib.Path(sys.prefix).resolve()==p.resolve(); assert pathlib.Path(sysconfig.get_path("scripts"),"studio.exe").is_file()', $venv)
         $env:Path = "$(Join-Path $venv 'Scripts');$env:Path"
         if ($package) {
             $vsix = Join-Path $script:SetupDirectory 'manim-studio-authoring.vsix'
@@ -411,18 +458,23 @@ class SetupSmoke(Scene):
                 Invoke-Checked $venvPython @('-m', 'manim', '-ql', '--renderer=cairo', '--media_dir', (Join-Path $smoke 'media'), $scenePath, 'SetupSmoke')
             }
         } finally { Pop-Location }
+        # Publish launch shortcuts only after all required installation checks succeeded.
+        $shortcuts = @(New-WorkstationShortcuts $root $repo $code)
         $report = [ordered]@{
             status = $(if ($SkipRenderCheck) { 'configured-render-not-verified' } else { 'configured-smoke-passed' })
             branch = $Branch; commit = ((& $git -C $repo rev-parse HEAD | Out-String).Trim())
             workspace = $workspace; session_id = $researchSession; log = $transcript
+            project = $repo; python_executable = $venvPython; virtual_environment = $venv
+            shortcuts = $shortcuts; codex_required_for_local_work = $false
             python = ((& $venvPython --version | Out-String).Trim())
             node = ((& node.exe --version | Out-String).Trim())
             complete_chat_capture = $false; interactive_desktop_verified = $false
         }
         Set-GeneratedFile (Join-Path $root 'setup-report.json') ($report | ConvertTo-Json -Depth 8)
-        Write-Host "Setup complete. Close this administrator window. In a normal PowerShell, run:"
+        Write-Host 'Setup complete. Close this administrator window and open Manim Studio from your desktop or Start menu.'
+        Write-Host 'Alternative normal-user launcher:'
         Write-Host "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $root 'Open-Manim-Research.ps1')`""
-        Write-Host 'Sign in to Codex and trust the project. Complete prompt/response capture needs the external host adapter.'
+        Write-Host 'Trust the project in VS Code. Python, pip and Studio are ready without Codex sign-in.'
     } finally { Stop-Transcript | Out-Null }
 }
 
