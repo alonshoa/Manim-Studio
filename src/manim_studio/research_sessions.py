@@ -104,6 +104,10 @@ class ResearchSessions:
             sort_keys=True, ensure_ascii=False, allow_nan=False).encode()).hexdigest()
         if not self.log.enabled:
             raise ResearchSessionError('capture_disabled')
+        runtime = None
+        if action in ('create','bind_client'):
+            from manim_studio.research_context import runtime_probe
+            runtime = runtime_probe(self.log.root)
         with self.log.connection() as db:
             db.execute('BEGIN IMMEDIATE')
             if db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()[0] != 'true':
@@ -115,6 +119,9 @@ class ResearchSessions:
                 return json.loads(previous['result'])
             arguments = {k: v for k, v in payload.items() if k != 'request_id'}
             result = getattr(self, '_' + action)(db, **arguments)
+            if runtime is not None:
+                from manim_studio.research_context import record_context
+                record_context(self.log,db,result['session_id'],payload.get('client_id'),runtime=runtime)
             db.execute('INSERT INTO research_requests VALUES (?,?,?)', (request, fingerprint, _json(result)))
         if action == 'create':
             from manim_studio.research_artifacts import ResearchArtifacts, quiet
@@ -207,6 +214,9 @@ class ResearchSessions:
 
     def _transition(self, db, session_id, expected_revision, target):
         row = self._revision(db, session_id, expected_revision)
+        if target != 'active':
+            from manim_studio.research_time import close_session_timers
+            close_session_timers(self.log,db,session_id,reason='research_'+target)
         if row['state'] == target:
             return self._status(db, session_id)
         if row['state'] == 'finished':

@@ -51,11 +51,12 @@ try {
     # Inspect the actual VSIX rather than accepting a file with the right suffix.
     $vsix = [IO.Compression.ZipFile]::OpenRead((Join-Path $payload 'manim-studio-authoring.vsix'))
     try {
-        foreach ($name in @('extension/package.json', 'extension/out/extension.js', 'extension/out/studioClient.js', 'extension/out/artifactsPanel.js', 'extension/media/artifacts.html', 'extension/media/artifacts.css', 'extension/media/artifacts.js')) {
+        foreach ($name in @('extension/package.json', 'extension/out/extension.js', 'extension/out/studioClient.js', 'extension/out/artifactsPanel.js', 'extension/out/timePanel.js', 'extension/media/time.html', 'extension/media/time.css', 'extension/media/time.js', 'extension/media/artifacts.html', 'extension/media/artifacts.css', 'extension/media/artifacts.js')) {
             if (-not $vsix.GetEntry($name)) { throw "Missing VSIX entry: $name" }
         }
         $reader = [IO.StreamReader]::new($vsix.GetEntry('extension/package.json').Open())
         try { $extension = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+        if ($extension.contributes.commands.command -notcontains 'manimStudio.research.showTime') { throw 'Missing time command in packaged extension.' }
         if ($extension.contributes.commands.command -notcontains 'manimStudio.research.showArtifacts') { throw 'Missing artifacts command in packaged extension.' }
         if ($extension.name -ne 'manim-studio-authoring' -or $extension.version -ne $manifest.extension_version) { throw 'Wrong packaged extension.' }
     } finally { $vsix.Dispose() }

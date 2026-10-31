@@ -260,7 +260,9 @@ class CaptureTests(unittest.TestCase):
         self.log.export(destination)
         text = destination.read_text()
         self.assertNotIn('SECRET', text)
-        self.assertNotIn('medium', text)  # run settings remain content-only
+        # Allowlisted generation settings are metadata; conversation text stays redacted.
+        contexts = [json.loads(line) for line in text.splitlines() if json.loads(line)['type'] == 'run.context.observed']
+        self.assertTrue(any(e['payload']['settings'].get('effort') == 'medium' for e in contexts if e['payload'].get('settings')))
         self.assertIn('thread1', text)
         full = self.root / 'full.jsonl'
         self.log.export(full, True)

@@ -6,7 +6,7 @@ import uuid
 from contextlib import closing
 from pathlib import Path
 
-VERSION = 5
+VERSION = 6
 BASE = """
 CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS events (
@@ -36,6 +36,16 @@ CREATE INDEX IF NOT EXISTS artifacts_session ON research_artifacts(session_id);
 CREATE TABLE IF NOT EXISTS artifact_jobs (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, status TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS artifact_snapshots (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, payload TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS research_decisions (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, payload TEXT NOT NULL);
+"""
+
+TIMING = """
+CREATE TABLE IF NOT EXISTS timing_state (id INTEGER PRIMARY KEY CHECK(id=1), participant_id TEXT NOT NULL, revision INTEGER NOT NULL, active_interval_id TEXT);
+CREATE TABLE IF NOT EXISTS timing_intervals (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, participant_id TEXT NOT NULL, status TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL);
+CREATE UNIQUE INDEX IF NOT EXISTS timing_one_active ON timing_intervals(participant_id) WHERE status='active';
+CREATE INDEX IF NOT EXISTS timing_session ON timing_intervals(session_id);
+CREATE TABLE IF NOT EXISTS timing_reports (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS run_contexts (id TEXT PRIMARY KEY, session_id TEXT NOT NULL, client_id TEXT NOT NULL, fingerprint TEXT NOT NULL, payload TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS run_context_lookup ON run_contexts(session_id,client_id);
 """
 
 
@@ -75,10 +85,10 @@ def migrate(db, database, timeout=30):
                 partial.replace(backup)
             finally:
                 partial.unlink(missing_ok=True)
-        for statement in (BASE + ARTIFACTS).split(";"):
+        for statement in (BASE + ARTIFACTS + TIMING).split(";"):
             if statement.strip():
                 db.execute(statement)
-        db.execute("PRAGMA user_version=5")
+        db.execute("PRAGMA user_version=6")
         db.commit()
     except BaseException:
         db.rollback()

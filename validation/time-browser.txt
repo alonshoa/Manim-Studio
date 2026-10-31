@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "checks": [
+    "separate timer/report summaries",
+    "run context",
+    "draft restored after controller restart",
+    "lost reply exact retry without duplicate",
+    "edit and void preserve history",
+    "start heartbeat pause stop",
+    "pinned research selection",
+    "explicit cross-research transfer",
+    "no webview JS errors"
+  ],
+  "screenshot": "research-time.png"
+}

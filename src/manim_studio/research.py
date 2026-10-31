@@ -14,7 +14,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 CLASSIFICATION_UNSET = object()
 PROMPT_TYPES = ('initial', 'continuation', 'corrective', 'irrelevant')
 REASONS = ('factual_math', 'narrative_order', 'unclear_explanation', 'add_content',
@@ -63,6 +63,9 @@ class ResearchLog:
             raise ValueError('managed must be a boolean')
         with self.connection() as db:
             db.execute('BEGIN IMMEDIATE')
+            if not enabled:
+                from manim_studio.research_time import close_session_timers
+                close_session_timers(self,db,reason='capture_disabled')
             if managed:
                 db.execute("INSERT OR REPLACE INTO config VALUES ('managed_sessions','true')")
             previous = db.execute("SELECT value FROM config WHERE key='enabled'").fetchone()
@@ -113,6 +116,14 @@ class ResearchLog:
             parent = db.execute('SELECT session_id FROM events WHERE id=?', (parent_id,)).fetchone()
             if parent is None or parent[0] != session_id:
                 raise ValueError('parent does not belong to research session')
+        from manim_studio.research_context import context_for_event, filtered, MODEL_KEYS, SETTING_KEYS
+        payload = dict(payload)
+        if 'model' in payload:
+            payload['model'] = filtered(payload['model'], MODEL_KEYS)
+        for metadata_key in ('run_settings', 'settings'):
+            if metadata_key in payload:
+                payload[metadata_key] = filtered(payload[metadata_key], SETTING_KEYS)
+        payload = context_for_event(self,db,kind,session_id,payload,parent_id)
         event_id = session_id if kind == 'session.started' else _id()
         db.execute('''INSERT INTO events
             (id,session_id,prompt_id,parent_id,type,timestamp,actor,stage,payload)
@@ -133,6 +144,8 @@ class ResearchLog:
             raise ValueError('model metadata must be an object or null')
         if run_settings is not None and not isinstance(run_settings, dict):
             raise ValueError('run settings must be an object or null')
+        from manim_studio.research_context import runtime_probe,record_context
+        runtime = runtime_probe(self.root)
         with self.connection() as db:
             session_id = _id()
             self._event(db, 'session.started', session_id,
@@ -140,6 +153,7 @@ class ResearchLog:
                          'studio_version': __version__,
                          'python_version': sys.version,
                          'schema_version': SCHEMA_VERSION})
+            record_context(self,db,session_id,runtime=runtime,model=model,settings=run_settings)
         return session_id
 
     def record_prompt(self, session_id, text, stage='unknown', model=None):
@@ -262,7 +276,16 @@ class ResearchLog:
                          'previous_human_head', 'suggestion_id', 'classifier', 'request_id',
                          'artifact_id', 'sha256', 'size', 'role', 'build_id', 'proposal_id', 'revision',
                          'decision_id', 'kind', 'origin', 'reported_by', 'action_id', 'before_snapshot_id',
-                         'after_snapshot_id', 'snapshot_id', 'files', 'omitted', 'missing', 'candidate')}
+                         'after_snapshot_id', 'snapshot_id', 'files', 'omitted', 'missing', 'candidate',
+                         'run_context_id','runtime','model','settings','provenance','observed_at','extension_version',
+                         'interval_id','participant_id','category','client_id','process_token','start_utc','end_utc',
+                         'confirmed_end_utc','measured_seconds','sequence','clock_anomaly','tail_unknown','close_reason',
+                         'delta_seconds','evidence','report_id','seconds','retrospective','measurement_ref',
+                         'replaces_interval_id','voided','previous_revision')}
+                if not include_content:
+                    from manim_studio.research_context import filtered, MODEL_KEYS, SETTING_KEYS
+                    if 'model' in event['payload']: event['payload']['model'] = filtered(event['payload']['model'], MODEL_KEYS)
+                    if 'settings' in event['payload']: event['payload']['settings'] = filtered(event['payload']['settings'], SETTING_KEYS)
                 records.append(event)
             if include_content:
                 import base64
@@ -364,7 +387,7 @@ def instrument_rpc(function):
     @functools.wraps(function)
     def wrapped(self, method, params):
         params = dict(params)
-        if method.startswith(('research.', 'classification.', 'artifacts.')):
+        if method.startswith(('research.', 'classification.', 'artifacts.', 'timing.')):
             return function(self, method, params)
         explicit = '_research' in params
         metadata = params.pop('_research', {})

@@ -275,6 +275,7 @@ export class ResearchCommandController {
       { label: "Finish", action: () => this.transition("finish") },
       { label: "Open research terminal", action: () => this.openTerminal() },
       { label: "Show status", action: () => this.showStatus() },
+      { label: "Human time and run metadata", action: () => vscode.commands.executeCommand("manimStudio.research.showTime") },
       { label: "Artifacts and decisions", action: () => vscode.commands.executeCommand("manimStudio.research.showArtifacts") },
       { label: "Classify prompts", action: async () => {await vscode.commands.executeCommand("manimStudio.research.classifyPrompts");} },
       { label: "Retry pending action", action: () => this.retryPending() },

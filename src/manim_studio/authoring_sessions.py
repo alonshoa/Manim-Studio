@@ -643,7 +643,7 @@ class AuthoringSessionController:
 
     @instrument_rpc
     def dispatch(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
-        if method.startswith(('research.', 'classification.', 'artifacts.')):
+        if method.startswith(('research.', 'classification.', 'artifacts.', 'timing.')):
             from manim_studio.research_cli import dispatch
             return dispatch(self.repo_root, method, params)
         if method == "start_session":

@@ -108,7 +108,8 @@ class ResearchTests(unittest.TestCase):
         content = path.read_text()
         self.assertNotIn('secret', content)
         self.assertNotIn('הוסף', content)
-        self.assertNotIn('test', content)
+        self.assertTrue(all('label' not in json.loads(line)['payload'] for line in content.splitlines() if 'payload' in json.loads(line)))
+        self.assertIn('fake-v1', content)  # Allowlisted model metadata is now exported.
         with self.assertRaises(FileExistsError):
             self.log.export(path)
         with self.assertRaises(ValueError):

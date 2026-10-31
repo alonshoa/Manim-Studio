@@ -9,6 +9,9 @@ from manim_studio.research import ResearchLog, PROMPT_TYPES, REASONS, STAGES
 
 def dispatch(root: Path, action: str, payload: dict):
     log = ResearchLog(root)
+    if action.startswith('timing.'):
+        from manim_studio.research_time import ResearchTiming
+        return ResearchTiming(root).dispatch(action.removeprefix('timing.'),payload)
     if action.startswith('artifacts.'):
         from manim_studio.research_artifacts import ResearchArtifacts, kick_worker
         service = ResearchArtifacts(root)
@@ -59,7 +62,7 @@ def rpc_loop(root):
             request = json.loads(line)
             request_id = request.get('id')
             method = request.get('method', '')
-            if not isinstance(request_id, int) or not isinstance(method, str) or not (method.startswith(('classification.', 'artifacts.')) or method in ('research.list', 'research.get')):
+            if not isinstance(request_id, int) or not isinstance(method, str) or not (method.startswith(('classification.', 'artifacts.', 'timing.')) or method in ('research.list', 'research.get')):
                 raise ValueError('invalid annotation RPC request')
             result = dispatch(root, method, request.get('params', {}))
             response = {'id': request_id, 'ok': True, 'data': result}
@@ -74,13 +77,14 @@ def main():
     from manim_studio.research_sessions import ACTIONS
     from manim_studio.prompt_classifications import ACTIONS as ANNOTATIONS
     from manim_studio.research_artifacts import ACTIONS as ARTIFACTS
+    from manim_studio.research_time import ACTIONS as TIMING
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('action', choices=['configure', 'start_session', 'record_prompt',
                                          'record_response', 'classify', 'export', 'schema', 'status',
                                          'codex-connect', 'codex-config', 'codex-hook', 'capture-status'] +
                                         ['research.' + action for action in ACTIONS] +
-                                        ['classification.' + action for action in ANNOTATIONS] + ['artifacts.' + action for action in ARTIFACTS] + ['rpc'])
+                                        ['classification.' + action for action in ANNOTATIONS] + ['artifacts.' + action for action in ARTIFACTS] + ['timing.' + action for action in TIMING] + ['rpc'])
     args = parser.parse_args()
     if args.action == 'rpc':
         return rpc_loop(args.root)

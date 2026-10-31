@@ -1,0 +1,17 @@
+npm warn Unknown env config "http-proxy". This will stop working in the next major version of npm.
+npm warn deprecated prebuild-install@7.1.3: No longer maintained. Please contact the author of the relevant native addon; alternatives are available.
+npm warn deprecated whatwg-encoding@3.1.1: Use @exodus/bytes instead for a more spec-conformant and faster implementation
+ INFO  Files included in the VSIX:
+manim-studio-time.vsix
+├─ [Content_Types].xml
+├─ extension.vsixmanifest
+└─ extension/
+   ├─ LICENSE.txt [1.04 KB]
+   ├─ package.json [8.8 KB]
+   ├─ readme.md
+   ├─ media/ (9 files) [49.68 KB]
+   └─ out/ (18 files) [214.39 KB]
+
+=> Run vsce ls --tree to see all included files.
+
+ DONE  Packaged: /tmp/manim-studio-time.vsix (32 files, 73.55 KB)

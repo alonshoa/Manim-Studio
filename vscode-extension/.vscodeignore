@@ -4,3 +4,5 @@ node_modules/**
 tsconfig.json
 package-lock.json
 *.vsix
+
+.ruff_cache/**

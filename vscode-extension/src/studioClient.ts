@@ -68,7 +68,7 @@ export class StudioRpcClient {
 
   async request(method: string, params: Record<string, unknown> = {}, timeoutMs = this.requestTimeoutMs): Promise<RpcResponse> {
     // Snapshot request-local context before any later UI selection change.
-    if (!method.startsWith("research.") && !method.startsWith("classification.") && !method.startsWith("artifacts.") && this.researchContextControlled && !("_research" in params)) {
+    if (!method.startsWith("research.") && !method.startsWith("classification.") && !method.startsWith("artifacts.") && !method.startsWith("timing.") && this.researchContextControlled && !("_research" in params)) {
       params = { ...params, _research: { ...(this.researchContext ?? {}) } };
     }
     if (["accept_proposal", "reject_proposal", "revise_proposal", "pause_session"].includes(method) && params._research && typeof params._research === "object") {

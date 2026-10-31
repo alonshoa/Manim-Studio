@@ -41,7 +41,8 @@
     "onCommand:manimStudio.research.classifyPrompts",
     "onCommand:manimStudio.research.showArtifacts",
     "onCommand:manimStudio.research.captureCheckpoint",
-    "onCommand:manimStudio.research.configureCaptureScope"
+    "onCommand:manimStudio.research.configureCaptureScope",
+    "onCommand:manimStudio.research.showTime"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -222,12 +223,16 @@
       {
         "command": "manimStudio.research.configureCaptureScope",
         "title": "Manim Studio Research: Configure Capture Scope"
+      },
+      {
+        "command": "manimStudio.research.showTime",
+        "title": "Manim Studio Research: Human Time and Run Metadata"
       }
     ]
   },
   "scripts": {
     "compile": "tsc -p .",
-    "test": "npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js && node test/research-commands.test.js && node test/classification-panel.test.js && node test/artifacts-panel.test.js"
+    "test": "npm run compile && node test/manifest.test.js && node test/rpc-client.test.js && node test/rpc-client-behavior.test.js && node test/preview-panel.test.js && node test/session-commands.test.js && node test/terminal-manager.test.js && node test/research-commands.test.js && node test/classification-panel.test.js && node test/artifacts-panel.test.js && node test/time-panel.test.js"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

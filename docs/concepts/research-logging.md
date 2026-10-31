@@ -26,8 +26,10 @@ automatic classification model. The bridge also supports host-generated suggesti
 
 Explicit lifecycle, topic selection, independent pause/resume, source/client binding,
 and the VS Code research controls are documented in [research sessions](research-sessions.md).
-The additive v5 schema keeps existing ledger/capture identities, management
+The additive v6 schema keeps existing ledger/capture identities, management
 state and stable request receipts, and versions annotation events. Native client delivery remains a separate acceptance gate.
+
+The [human time and run metadata panel](research-time.md) adds explicit timers, retrospective reports, versioned corrections and provenance-labelled runtime/model contexts. It never infers human effort from message gaps.
 
 ## Automatic Codex capture
 
