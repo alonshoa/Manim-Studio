@@ -118,7 +118,7 @@ def write_package(root, data, report, job_id, mode, staging, progress):
                 if members[name] != dict(size=descriptor['size'], sha256=sha):
                     fail('content_changed_during_export')
         archive.writestr('manifest.json', _json(manifest).encode('utf-8'))
-    with open(staging, 'rb') as output:
+    with open(staging, 'r+b') as output:
         os.fsync(output.fileno())
     verify_export(staging, progress=progress)
     return file_digest(staging, progress)

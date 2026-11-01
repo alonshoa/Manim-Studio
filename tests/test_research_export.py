@@ -16,7 +16,7 @@ from tests.test_research_integrity import research, plan
 from manim_studio.research import _json
 from manim_studio.research_artifacts import ResearchArtifacts
 from manim_studio.research_export import verify_export, restore_export, file_digest
-from manim_studio.research_jobs import ResearchJobs
+from manim_studio.research_jobs import ResearchJobs, JobLock
 from manim_studio.research_sessions import ResearchSessionError
 
 
@@ -260,6 +260,18 @@ def test_worker_subprocess_rpc_and_cli_verify_without_authoring_queue(research, 
         time.sleep(.1)
     assert status['status'] == 'completed', status
     assert verify_export(path)['valid']
+    # Wait for the detached worker to release its OS lock before removing evidence.
+    # Windows cannot unlink an open lock file; Linux must not let the idle worker recreate the DB.
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        try:
+            with JobLock(log.directory / 'integrity-worker.lock'):
+                pass
+            break
+        except OSError:
+            time.sleep(.05)
+    else:
+        pytest.fail('Background worker did not release its file handles')
     # Standalone verifier module needs no Manim/renderer or original database.
     shutil.rmtree(root)
     code = 'from manim_studio.research_export import verify_export; import sys; assert verify_export(sys.argv[1])["valid"]'
@@ -320,7 +332,7 @@ def test_real_process_crash_before_publish_resumes_frozen_plan(research, tmp_pat
     pending = jobs.dispatch('exports','start',dict(session_id=session,request_id='real-crash',mode='full',destination=str(path)))
     code = '''
 import os,sys
-from manim_studio.research_jobs import ResearchJobs
+from manim_studio.research_jobs import ResearchJobs, JobLock
 from manim_studio import research_export
 original=research_export.write_package
 def die(*args):
