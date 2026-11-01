@@ -1123,6 +1123,11 @@ def build_parser() -> argparse.ArgumentParser:
     research_commands = research_parser.add_subparsers(dest='research_command', required=True)
     research_rpc = research_commands.add_parser('rpc', help='Dedicated prompt annotation RPC transport.')
     research_rpc.add_argument('--repo-root', default=None)
+    verify = research_commands.add_parser('verify-export', help='Verify a research ZIP without the source project.')
+    verify.add_argument('path')
+    restore = research_commands.add_parser('restore-export', help='Restore evidence into a new directory, without executing it.')
+    restore.add_argument('path')
+    restore.add_argument('destination')
     profile_choices = profile_names()
 
     list_parser = subparsers.add_parser(
@@ -1630,6 +1635,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == 'research':
+        if args.research_command in ('verify-export', 'restore-export'):
+            from manim_studio.research_export import verify_export, restore_export
+            import json
+            try:
+                result = verify_export(args.path) if args.research_command == 'verify-export' else restore_export(args.path, args.destination)
+                print(json.dumps(result, ensure_ascii=False))
+                return 0
+            except (ValueError, OSError) as exc:
+                print(json.dumps({'valid': False, 'error': getattr(exc, 'code', 'invalid_export')}))
+                return 1
         from manim_studio.research_cli import rpc_loop
         return rpc_loop(Path(args.repo_root or Path.cwd()).resolve())
 

@@ -14,7 +14,7 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 CLASSIFICATION_UNSET = object()
 PROMPT_TYPES = ('initial', 'continuation', 'corrective', 'irrelevant')
 REASONS = ('factual_math', 'narrative_order', 'unclear_explanation', 'add_content',

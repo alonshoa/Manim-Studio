@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "checks": [
+    "deep findings and honest unverified delivery",
+    "quick vs deep report",
+    "lost reply exposes enabled retry button",
+    "retry produces one export",
+    "independent ZIP verification",
+    "selection survives reload",
+    "safe recovery feedback",
+    "other research selection clears prior reports",
+    "no webview errors"
+  ],
+  "screenshot": "research-integrity.png"
+}

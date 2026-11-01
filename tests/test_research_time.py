@@ -470,7 +470,8 @@ class TimingTests(unittest.TestCase):
         self.assertTrue(state["summary"]["human_time_missing"])
         self.assertTrue(list(self.log.directory.glob("migration-backup-*")))
         with self.log.connection() as db:
-            self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], 6)
+            from manim_studio.research_schema import VERSION
+            self.assertEqual(db.execute("PRAGMA user_version").fetchone()[0], VERSION)
 
     def test_real_persistent_rpc_unicode_and_restart(self):
         env = dict(

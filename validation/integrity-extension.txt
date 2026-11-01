@@ -1,0 +1,2 @@
+npm test: passed (TypeScript compilation and 11 extension test scripts).
+Includes integrity panel durable retry, selection, dialog race, late response and workspace trust.

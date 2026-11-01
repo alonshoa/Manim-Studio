@@ -34,3 +34,5 @@ npm run compile
 Then launch the extension from VS Code's extension development host.
 
 Start with `Manim Studio: Open Authoring Workspace` or `Manim Studio: Start Authoring Session`. In the default `embedded` mode, normal authoring commands render a draft video and show it inside VS Code without opening an external OpenGL window. Set `manimStudio.previewMode` to `externalOpenGL` to use the legacy live preview workflow.
+
+Research integrity, safe recovery and scoped ZIP export: **Manim Studio Research: Integrity, Recovery and Export**. See [Windows test guide](../docs/concepts/research-integrity.md).

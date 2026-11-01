@@ -4,6 +4,7 @@ import { SessionCommandController } from "./sessionCommands";
 import { StudioRpcClient } from "./studioClient";
 import { TerminalManager } from "./terminalManager";
 import { ResearchCommandController } from "./researchCommands";
+import { IntegrityPanel } from "./integrityPanel";
 import { TimePanel } from "./timePanel";
 import { ArtifactsPanel } from "./artifactsPanel";
 import { ClassificationPanel } from "./classificationPanel";
@@ -16,6 +17,7 @@ let research: ResearchCommandController | undefined;
 let classifications: ClassificationPanel | undefined;
 let artifacts: ArtifactsPanel | undefined;
 let timing: TimePanel | undefined;
+let integrity: IntegrityPanel | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
   output = vscode.window.createOutputChannel("Manim Studio");
@@ -51,6 +53,11 @@ export function activate(context: vscode.ExtensionContext): void {
     config.get<Record<string, string>>("processEnv") || {}, "classification");
   timing = new TimePanel(context,timingClient);
   timing.register();
+  const integrityClient = new StudioRpcClient(workspace.uri.fsPath, config.get<string>("studioExecutable") || "studio",
+    "catalog/scenes.yaml", message => output?.appendLine(message), 15000,
+    config.get<Record<string, string>>("processEnv") || {}, "classification");
+  integrity = new IntegrityPanel(context, integrityClient, workspace.uri.fsPath);
+  integrity.register();
   const preview = new ManimPreviewPanel(context, workspace.uri.fsPath, (action) => {
     if (!controller) {
       return Promise.resolve();
@@ -80,6 +87,7 @@ function createClient(repoRoot: string, log: vscode.OutputChannel): StudioRpcCli
 }
 
 function disposeAll(): void {
+  integrity?.dispose(); integrity = undefined;
   timing?.dispose(); timing = undefined;
   artifacts?.dispose(); artifacts = undefined;
   classifications?.dispose(); classifications = undefined;

@@ -508,6 +508,8 @@ class ResearchArtifacts:
             or artifact["revision"] != p["expected_revision"]
         ):
             fail("artifact_revision_conflict")
+        if db.execute("SELECT 1 FROM research_pins WHERE sha256=?", (artifact.get("sha256"),)).fetchone():
+            fail("artifact_pinned")
         if artifact["status"] == "pending":
             fail("artifact_pending")
         artifact["status"] = "purged"
@@ -958,6 +960,7 @@ class ResearchArtifacts:
                 for r in db.execute("SELECT payload FROM research_artifacts")
                 if json.loads(r[0]).get("status") == "retained"
             }
+            retained.update(r[0] for r in db.execute("SELECT sha256 FROM research_pins"))
             for row in db.execute("SELECT payload FROM research_artifacts").fetchall():
                 artifact = json.loads(row[0])
                 sha = artifact.get("sha256")

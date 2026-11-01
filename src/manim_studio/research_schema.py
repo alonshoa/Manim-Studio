@@ -6,7 +6,7 @@ import uuid
 from contextlib import closing
 from pathlib import Path
 
-VERSION = 6
+VERSION = 7
 BASE = """
 CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS events (
@@ -48,6 +48,15 @@ CREATE TABLE IF NOT EXISTS run_contexts (id TEXT PRIMARY KEY, session_id TEXT NO
 CREATE INDEX IF NOT EXISTS run_context_lookup ON run_contexts(session_id,client_id);
 """
 
+INTEGRITY = """
+CREATE TABLE IF NOT EXISTS research_jobs (
+ id TEXT PRIMARY KEY, session_id TEXT NOT NULL, kind TEXT NOT NULL,
+ status TEXT NOT NULL, payload TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS research_jobs_session ON research_jobs(session_id);
+CREATE TABLE IF NOT EXISTS research_pins (
+ job_id TEXT NOT NULL, sha256 TEXT NOT NULL, PRIMARY KEY(job_id,sha256));
+"""
+
 
 def migrate(db, database, timeout=30):
     version = db.execute("PRAGMA user_version").fetchone()[0]
@@ -85,10 +94,10 @@ def migrate(db, database, timeout=30):
                 partial.replace(backup)
             finally:
                 partial.unlink(missing_ok=True)
-        for statement in (BASE + ARTIFACTS + TIMING).split(";"):
+        for statement in (BASE + ARTIFACTS + TIMING + INTEGRITY).split(";"):
             if statement.strip():
                 db.execute(statement)
-        db.execute("PRAGMA user_version=6")
+        db.execute("PRAGMA user_version=7")
         db.commit()
     except BaseException:
         db.rollback()
