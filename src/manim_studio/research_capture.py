@@ -56,7 +56,7 @@ def hook_config(root: Path, python: str | None = None):
     return {'hooks': {name: [{'hooks': [dict(handler)]}] for name in HOOKS}}
 
 
-def connect(root: Path):
+def connect(root: Path, *, enable: bool = True):
     """Explicit user command. Merge only our handlers, preserving other hooks."""
     root = Path(root).resolve()
     folder = root / '.codex'
@@ -87,8 +87,9 @@ def connect(root: Path):
         os.replace(temporary, destination)
     finally:
         temporary.unlink(missing_ok=True)
-    ResearchLog(root).configure(True)
-    return {'enabled': True, 'configuration': str(destination),
+    if enable:
+        ResearchLog(root).configure(True)
+    return {'enabled': ResearchLog(root).enabled, 'configuration': str(destination),
             'next_step': 'Review and trust these hooks in Codex, then resume the conversation. '
                          'Hook delivery in your CLI/IDE version must be verified with capture-status.'}
 
