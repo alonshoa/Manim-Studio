@@ -1128,6 +1128,17 @@ def build_parser() -> argparse.ArgumentParser:
     restore = research_commands.add_parser('restore-export', help='Restore evidence into a new directory, without executing it.')
     restore.add_argument('path')
     restore.add_argument('destination')
+    research_start = research_commands.add_parser('start', help='Start or attach a managed research session.')
+    research_start.add_argument('--repo-root', default=None)
+    research_start.add_argument('--title', default='Manim Studio experiment')
+    research_start.add_argument('--topic', default='Educational deck creation')
+    research_start.add_argument('--thread-id', default=None)
+    research_start.add_argument('--json', action='store_true')
+    research_finish = research_commands.add_parser('finish', help='Finish research and queue integrity/export jobs.')
+    research_finish.add_argument('--repo-root', default=None)
+    research_finish.add_argument('--session-id', default=None)
+    research_finish.add_argument('--destination', default=None, help='Full ZIP path outside the project.')
+    research_finish.add_argument('--json', action='store_true')
     profile_choices = profile_names()
 
     list_parser = subparsers.add_parser(
@@ -1634,6 +1645,18 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.command == 'research' and args.research_command in ('start', 'finish'):
+        from manim_studio.research_lifecycle import start, finish
+        try:
+            root = Path(args.repo_root or Path.cwd()).resolve()
+            result = (start(root, title=args.title, topic=args.topic, thread_id=args.thread_id)
+                      if args.research_command == 'start' else
+                      finish(root, session_id=args.session_id, destination=args.destination))
+            print(json.dumps(result, ensure_ascii=False, indent=None if args.json else 2))
+            return 0 if result['status'] in ('READY', 'PROCESSING') else 2
+        except (ValueError, OSError) as exc:
+            print(json.dumps({'status': 'FAILED', 'error': str(exc)}, ensure_ascii=False))
+            return 1
     if args.command == 'research':
         if args.research_command in ('verify-export', 'restore-export'):
             from manim_studio.research_export import verify_export, restore_export
