@@ -8,7 +8,7 @@ from manim_studio import research_lifecycle as lifecycle
 def test_start_does_not_claim_capture_when_disabled(tmp_path):
     result = lifecycle.start(tmp_path, title='Pilot', topic='Deck')
     assert result['status'] == 'ACTION_REQUIRED'
-    assert result['reason'] == 'capture_disabled'
+    assert result['reason'] == 'hooks_not_prepared'
 
 
 def test_start_requires_observed_hook_before_claiming_ready(tmp_path):
@@ -33,3 +33,22 @@ def test_cli_exposes_research_lifecycle_commands():
     parser = build_parser()
     assert parser.parse_args(['research', 'start', '--json']).research_command == 'start'
     assert parser.parse_args(['research', 'finish', '--json']).research_command == 'finish'
+
+
+def test_prepare_hooks_does_not_enable_capture(tmp_path):
+    from manim_studio.research_capture import connect
+    from manim_studio.research import ResearchLog
+    result = connect(tmp_path, enable=False)
+    assert Path(result['configuration']).is_file()
+    assert ResearchLog(tmp_path).enabled is False
+
+
+def test_start_after_preparation_enables_only_on_explicit_request(tmp_path):
+    from manim_studio.research_capture import connect
+    from manim_studio.research import ResearchLog
+    connect(tmp_path, enable=False)
+    assert not ResearchLog(tmp_path).enabled
+    result = lifecycle.start(tmp_path, title='Pilot', topic='Deck')
+    assert ResearchLog(tmp_path).enabled
+    assert result['status'] == 'ACTION_REQUIRED'
+    assert result['capture_verified'] is False
