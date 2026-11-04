@@ -44,8 +44,23 @@ def start(root: Path, *, title: str, topic: str, thread_id: str | None = None):
         return {'status': 'ACTION_REQUIRED', 'reason': 'multiple_active_sessions',
                 'sessions': [s['session_id'] for s in existing]}
     if not ResearchLog(root).enabled:
-        return {'status': 'ACTION_REQUIRED', 'reason': 'capture_disabled',
-                'next_action': 'Install/trust Codex hooks and enable managed research capture before starting.'}
+        hooks = root / '.codex' / 'hooks.json'
+        if hooks.is_symlink() or not hooks.is_file():
+            return {'status': 'ACTION_REQUIRED', 'reason': 'hooks_not_prepared',
+                    'next_action': 'Prepare hooks using studio-research --root . codex-prepare, then trust them in Codex. Restart/resume the conversation if needed.'}
+        from manim_studio.research_capture import MARKER
+        import json
+        try:
+            config = json.loads(hooks.read_text(encoding='utf-8'))
+            installed = any(h.get('statusMessage') == MARKER
+                for groups in config.get('hooks', {}).values() for group in groups
+                for h in group.get('hooks', []) if isinstance(h, dict))
+        except (ValueError, TypeError, AttributeError):
+            installed = False
+        if not installed:
+            return {'status': 'ACTION_REQUIRED', 'reason': 'hooks_not_prepared',
+                    'next_action': 'Prepare and trust Manim Studio hooks before starting.'}
+        ResearchLog(root).configure(True, managed=True)
     session = existing[0] if existing else None
     if session is None:
         session = sessions.dispatch('create', {'title': title, 'topic': topic,
