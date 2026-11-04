@@ -48,10 +48,12 @@ def dispatch(root: Path, action: str, payload: dict):
         return {'prompt_types': PROMPT_TYPES, 'reasons': REASONS, 'stages': STAGES}
     if action == 'status':
         return {'enabled': log.enabled}
-    if action in ('codex-connect', 'codex-config', 'capture-status', 'codex-hook'):
+    if action in ('codex-connect', 'codex-prepare', 'codex-config', 'capture-status', 'codex-hook'):
         from manim_studio.research_capture import CodexCapture, connect, hook_config
         if action == 'codex-connect':
             return connect(root)
+        if action == 'codex-prepare':
+            return connect(root, enable=False)
         if action == 'codex-config':
             return hook_config(root)
         capture = CodexCapture(root)
@@ -101,7 +103,7 @@ def main():
     payload = None
     try:
         payload = json.load(sys.stdin) if args.action not in (
-            'schema', 'status', 'codex-connect', 'codex-config', 'capture-status') else {}
+            'schema', 'status', 'codex-connect', 'codex-prepare', 'codex-config', 'capture-status') else {}
         result = dispatch(args.root, args.action, payload)
         # Hook output must never become model context, deny tools, or continue a turn.
         print(json.dumps({} if args.action == 'codex-hook' else {'ok': True, 'data': result},
