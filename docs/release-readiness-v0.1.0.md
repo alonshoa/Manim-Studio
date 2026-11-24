@@ -22,8 +22,9 @@ audit or a claim that every research result has been independently reproduced.
   contents/history and repaired their relative documentation links.
 - Added [an inventory](archive/README.md) classifying scratch decks, empty client
   smoke sessions, accepted-step ledgers, tests, baselines, design records and
-  historical validation reports. The initial pass preserved all experiment files;
-  the subsequent maintainer-approved cleanup below removes only empty/trivial sessions.
+  historical test reports. The initial pass preserved all experiment files;
+  subsequent maintainer-approved cleanup removes empty/trivial sessions and saved
+  historical test outputs, as described below.
 - Expanded `.gitignore` for local research databases, SQLite journals, VSIX/private
   key output and Python build staging. Existing build/media/log/config exclusions
   remain in place. Generated packages and test environments were not committed.
@@ -42,9 +43,11 @@ sources, five `.steps.json` ledgers and five catalog entries. The six remaining
 registered scenes retain the substantive examples and the incremental axes/sine
 movie. No tests or documentation commands refer to the removed scene IDs.
 
-The former paths remain recoverable from Git history. Research databases, historical
-`validation/` output, the axes/sine ledger and curated baselines remain untouched.
-The two historical TODO files were moved rather than discarded.
+The former paths remain recoverable from Git history. The maintainer subsequently
+approved removal of 27 saved historical test-output files and their documentation
+references. Actual tests, CI checks, research databases, the axes/sine ledger and
+curated baselines remain intact. The two historical TODO files were moved rather
+than discarded.
 
 ## Stage 2 — Agent instructions and skills
 

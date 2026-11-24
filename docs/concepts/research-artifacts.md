@@ -66,7 +66,7 @@ npm test --prefix vscode-extension
 CHROMIUM_EXECUTABLE=/path/to/chromium node scripts/test-artifacts-ui.js
 ```
 
-The optional browser harness requires Playwright available to Node. It creates only a temporary synthetic project, calls no model, and cleans it up. Logs: `validation/artifacts-tests.txt`, `artifacts-tests.xml`, `artifacts-extension.txt`, `artifacts-browser.txt`, `artifacts-powershell.txt`, `artifacts-vsix.txt` and `artifacts-authoring-regressions.txt`.
+The optional browser harness requires Playwright available to Node. It creates only a temporary synthetic project, calls no model, and cleans it up.
 
 ![Actual artifacts webview rendered in Chromium with synthetic data](../screenshots/research-artifacts.png)
 

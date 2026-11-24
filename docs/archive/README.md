@@ -11,7 +11,6 @@ research analysis and adaptive checkpoints remain future proposals, not v0.1.0 c
 | `decks/interactive-test/`, `decks/interactive-test1/` | Removed on maintainer request: duplicate red-dot scaling smoke sessions without educational content; source/ledgers remain recoverable from Git history. |
 | `decks/interactive-vsc/`, `decks/interactive/` | Removed on maintainer request: two empty scenes and the third identical red-dot scaling session; matching catalog entries removed. |
 | `decks/test-movie/` | Incremental axes/sine movie example with accepted-change history; retain. |
-| `validation/` | Historical test/browser/package reports; retain unchanged. They are not results for this release revision. |
 | `tests/fixtures/`, `baselines/` | Regression fixtures and curated rendering references; retain. |
 | `docs/design/` | Research lifecycle design history; retain. |
 | `scripts/*demo*`, `scripts/test-*-ui.js` | Reproducible UI demonstrations/checks; retain. |
@@ -19,6 +18,7 @@ research analysis and adaptive checkpoints remain future proposals, not v0.1.0 c
 The initial release review preserved all sessions. In the subsequent PR review, the
 maintainer explicitly requested removal of empty and trivial/duplicate development
 decks. Five such sessions (ten source/ledger files) and their catalog entries were
-removed. Git history, substantive examples, research databases and historical
-validation evidence were not rewritten or purged.
+removed. The maintainer also approved removal of saved historical test outputs;
+these remain recoverable from Git history. Substantive examples, research databases,
+test code and fixtures remain intact.
 No duplicate issues were opened after reviewing the current issue tracker.

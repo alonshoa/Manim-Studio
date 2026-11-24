@@ -63,7 +63,7 @@ The optional browser harness requires Playwright available to Node and a Chromiu
 CHROMIUM_EXECUTABLE=/path/to/chromium node scripts/test-classification-ui.js
 ```
 
-It creates an isolated temporary database with synthetic Hebrew data and makes no model calls. Results are in `validation/classification-tests.txt`, `validation/classification-extension.txt` and `validation/classification-browser.txt`.
+It creates an isolated temporary database with synthetic Hebrew data and makes no model calls.
 
 ## Screenshots
 

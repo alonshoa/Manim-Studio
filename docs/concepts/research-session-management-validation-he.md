@@ -59,6 +59,4 @@ npm ci
 npm test
 ```
 
-לוגים מקומיים: `validation/research-management.txt`, `validation/research-management.xml`, `validation/research-extension-tests.txt`, `validation/research-management-native.txt`.
-
 הוראות שימוש וגבולות ההתנהגות: [ניהול מחקרים](research-sessions.md).

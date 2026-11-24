@@ -75,6 +75,6 @@ npm test --prefix vscode-extension
 CHROMIUM_EXECUTABLE=/path/to/chromium node scripts/test-time-ui.js
 ```
 
-ה־harness דורש Playwright הזמין ל־Node, יוצר פרויקט זמני וסינתטי ואינו קורא למודל. תוצאות נשמרות ב־`validation/time-tests.txt`, `time-tests.xml`, `time-extension.txt`, `time-browser.txt`, `time-powershell.txt` ו־`time-vsix.txt`. בדיקות הזמן נוספו ל־Windows CI ובדיקת החבילה דורשת את הפקודה ונכסיה.
+ה־harness דורש Playwright הזמין ל־Node, יוצר פרויקט זמני וסינתטי ואינו קורא למודל. בדיקות הזמן נוספו ל־Windows CI ובדיקת החבילה דורשת את הפקודה ונכסיה.
 
 לפני סגירה מלאה ב־Windows: לבדוק עבודה וסיווג, שני חלונות, השהיה וסיום מחקר, כיבוי איסוף ודיווח בדיעבד, reload עם טיימר וטיוטה, ניתוק וסגירה בכוח. לוודא שהזנב הלא מאושר מסומן ושטיימר אינו מתחדש מעצמו. מעבר הבדיקות המקומיות אינו מחליף קבלה זו.
