@@ -8,8 +8,8 @@ $parseErrors = $null
 if ($parseErrors.Count) { throw ($parseErrors | Out-String) }
 . $Script
 # Safe first-run planning must never imply research consent.
-$plan = & (Join-Path $PSHOME $(if ($PSVersionTable.PSEdition -eq 'Desktop') { 'powershell.exe' } elseif ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { 'pwsh.exe' } else { 'pwsh' })) -NoProfile -File $Script -Plan | ConvertFrom-Json
-if ($plan.research_capture -ne $false -or $plan.branch -ne 'main') { throw 'Setup defaults must be main with research disabled.' }
+$setupPlanResult = & (Join-Path $PSHOME $(if ($PSVersionTable.PSEdition -eq 'Desktop') { 'powershell.exe' } elseif ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) { 'pwsh.exe' } else { 'pwsh' })) -NoProfile -File $Script -Plan | ConvertFrom-Json
+if ($setupPlanResult.research_capture -ne $false -or $setupPlanResult.branch -ne 'main') { throw 'Setup defaults must be main with research disabled.' }
 function Assert-SetupTest([bool]$Condition, [string]$Message) { if (-not $Condition) { throw $Message } }
 $root = Join-Path ([IO.Path]::GetTempPath()) ('studio setup test ' + [char]0x05D0 + ' ' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $root | Out-Null
