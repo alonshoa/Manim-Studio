@@ -1,7 +1,13 @@
 # Quick Start
 
-Use this path to verify the project, inspect registered scenes, render one
-scene, and inspect the generated build.
+After [Windows installation](windows-research-setup.md), open the installed
+workspace and connect the agent. Explicitly select Guided or Flexible before a new
+creation task; the Creator skill reads the selected reference. Research is optional.
+Create, review and revise content before final rendering and export.
+
+The commands below verify the installed repository workspace, inspect included
+examples, render one scene and inspect its build. A complete real authoring
+walkthrough is tracked in [#31](https://github.com/alonshoa/Manim-Studio/issues/31).
 
 ## Check The Environment
 

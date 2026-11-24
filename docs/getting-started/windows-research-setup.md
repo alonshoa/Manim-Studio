@@ -8,7 +8,7 @@ An Internet connection and administrator credentials are required.
 
 ## Download a tested package from GitHub Actions
 
-Open [Windows research package](https://github.com/alonshoa/Manim-Studio/actions/workflows/windows-research-package.yml),
+Open [Windows installation package](https://github.com/alonshoa/Manim-Studio/actions/workflows/windows-research-package.yml),
 select a successful run, and download the `Manim-Studio-Windows-x64-<commit>` (the inner ZIP also includes the version)
 artifact. GitHub may require sign-in to download an Actions artifact. Extract the
 artifact, then extract its installation ZIP. Right-click `Start-Setup.cmd` and choose
@@ -61,13 +61,13 @@ research data and later Codex login belong to the intended Windows user.
 Default destination: `%USERPROFILE%\Manim-Research`. To select another destination:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup -InstallRoot 'D:\Manim Research'
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-windows-research.ps1 -InstallRoot 'D:\Manim Research'
 ```
 
 To see the plan without installing anything or requiring elevation:
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup -Plan
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\setup-windows-research.ps1 -Plan
 ```
 
 If an installer requests a reboot, setup exits with code **3010**. Restart Windows
@@ -84,12 +84,12 @@ does not install an automatic logon task. A non-reboot failure exits with code 1
 | Tools | Git, Python 3.12 x64, Node.js LTS, VS Code and FFmpeg from exact WinGet package IDs |
 | TeX | MiKTeX, package database/update, initial formula/Hebrew packages and automatic package installation |
 | Fonts | DejaVu 2.37 archive from the official download, verified with published SHA-256, installed in Windows |
-| Source | Clone the specified research branch; safely fast-forward an existing clean checkout |
+| Source | Restore the exact bundled commit; packaged reruns require the same clean revision. Branch updates require explicit development setup. |
 | Python | Project-local `Manim-Studio\.venv`; install runtime dependencies and dev extra, run `pip check` and import/entry-point verification |
 | Native wheels | Require binary wheels for PyCairo/ManimPango on Python 3.12 x64; no ad-hoc C toolchain compilation |
-| Local extension | `npm ci`, compile TypeScript, package VSIX and install in desktop VS Code |
+| Local extension | Install the bundled verified VSIX; explicit source development setup builds locally |
 | AI client | Codex CLI and official Codex VS Code extension; Python extension installed too |
-| Research | Enable local SQLite logging and create/reuse a bootstrap research session |
+| Research | Disabled by default on new installations; `-EnableResearchCapture` explicitly enables local tool-action logging |
 | Configuration | Workspace and folder settings, project Python/terminal/RPC environment, MCP configuration, normal-user launcher, desktop and Start menu shortcuts |
 | Checks | `studio doctor`, research tests, and a short Cairo-rendered video with Hebrew text and a LaTeX formula |
 
@@ -161,12 +161,12 @@ Interpreter** once to select the project's `.venv`.
 
 The destination contains:
 
-- `Manim-Studio\`: research checkout; local research database is inside its
+- `Manim-Studio\`: source checkout; local research database is inside its
   gitignored `.manim-studio\research\` directory.
 - `Manim-Studio\.venv\`: dedicated project Python environment.
 - `downloads\`: verified font archive, built VSIX and initialization helper.
 - `setup-logs\`: installation transcripts, including the command that failed.
-- `research-session.json`: bootstrap session ID, reused on a setup rerun.
+- `research-session.json`: optional bootstrap session ID when capture was explicitly enabled.
 - `Manim-Research.code-workspace` and `Open-Manim-Research.ps1`.
 - `mcp-client.json` and `setup-report.json`.
 
@@ -212,8 +212,8 @@ authoring environment.** The script must pass its on-machine doctor, Python test
 and video smoke test before that workstation can be considered verified. A final
 manual preview/accept/reject flow, Codex authentication and visual inspection of
 Hebrew are still needed. Files under `smoke\media` contain the rendered test video.
-The existing Python suite also has a separate Linux failure around a Windows-only
-`manim.exe` fixture; setup runs the research tests, not that unrelated failing test.
+The Windows executable fixture now explicitly selects its simulated platform; the
+current Linux suite result and skipped render checks are in the release-readiness report.
 
 Reference documentation used for the bootstrap:
 

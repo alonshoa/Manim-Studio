@@ -1,8 +1,24 @@
 # Skill Contracts
 
-Manim-specific skills must operate through registered Studio targets and staged
+Staged-edit MCP skills must operate through registered Studio targets and staged
 patch proposals. A skill may inspect scene context, build manifests, logs, and
 artifacts, but it must not write canonical scene files directly.
+
+## Required Creator workflow
+
+For new educational scene/deck creation and revisions, use the shared
+`.agents/skills/manim-studio-creator/SKILL.md`. At the beginning of each new
+creation task, obtain an explicit Guided or Flexible selection (unless already
+explicitly selected for that task) and read the corresponding reference before
+creating content. Never infer a mode. Research consent is separate and optional;
+verify conversation binding before claiming active capture, and obtain approval
+before finishing or exporting research.
+
+`studio project init` copies the same skill and references into `.agents/skills`
+and `.claude/skills`, with matching `AGENTS.md` and `CLAUDE.md` instructions.
+Installed Python packages carry these resources too. Native Windows setup opens
+the source workspace containing the shared skill; agent sign-in/trust remain manual.
+Instruction-discovery tests do not prove that an authenticated client obeys the workflow.
 
 ## Render Debugging Skill
 
