@@ -50,6 +50,9 @@ nav:
       - Interactive Authoring In VS Code: workflows/interactive-authoring-vscode.md
   - Examples:
       - Overview: examples/index.md
+      - Linked List — Guided Lesson: examples/linked-list-head.md
+      - Vector Distances — Presentation Adaptation: examples/vector-distances.md
+      - Example Assets: examples/assets-publication.md
       - Basic Scenes: examples/basic-scenes.md
       - Pilot Scenes: examples/pilot-scenes.md
   - Manim Kit:

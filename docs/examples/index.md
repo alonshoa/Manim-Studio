@@ -4,6 +4,15 @@ The catalog currently registers five scenes across three decks. These examples
 exercise the rendering paths Manim Studio needs to support before deeper
 automation is added.
 
+## End-to-end examples
+
+Two real authoring sessions illustrate how teachers use Manim Studio to create and refine complete lessons:
+
+- [Linked List — Guided Lesson](linked-list-head.md): create a lesson from scratch, approve scenes, refine code pacing and export a classroom presentation.
+- [Vector Distances — Presentation Adaptation](vector-distances.md): transform an existing PowerPoint, synchronize geometry and algebra, and refine the teaching sequence.
+
+Both walkthroughs include translated excerpts from recorded instructor–Codex interactions. Media publication is tracked in the [example assets checklist](assets-publication.md).
+
 ## Registered Examples
 
 | Target | Renderer | Purpose |
