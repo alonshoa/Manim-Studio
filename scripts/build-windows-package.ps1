@@ -3,7 +3,7 @@
 param(
     [Parameter(Mandatory)][string]$Vsix,
     [string]$OutputDirectory = (Join-Path $PSScriptRoot '../dist/windows'),
-    [string]$SourceBranch = 'research/prompt-logging'
+    [string]$SourceBranch = 'main'
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -16,7 +16,10 @@ $dirty = (& git -C $repo status --porcelain --untracked-files=no | Out-String).T
 if ($LASTEXITCODE -ne 0 -or $dirty) { throw 'Commit tracked changes before packaging; package source must match the build commit.' }
 $out = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Path $out -Force | Out-Null
-$name = 'Manim-Studio-Research-Windows-x64-' + $commit.Substring(0, 12)
+$metadata = [IO.File]::ReadAllText((Join-Path $repo 'pyproject.toml'))
+if ($metadata -notmatch '(?m)^version = "([^"]+)"') { throw 'Missing package version.' }
+$version = $Matches[1]
+$name = 'Manim-Studio-Windows-x64-' + $version + '-' + $commit.Substring(0, 12)
 $zip = Join-Path $out "$name.zip"
 if (Test-Path -LiteralPath $zip) { throw "Package already exists: $zip" }
 $stage = Join-Path ([IO.Path]::GetTempPath()) ('studio-package-' + [guid]::NewGuid().ToString('N'))
@@ -46,7 +49,7 @@ exit /b %setup_code%
 '@
     [IO.File]::WriteAllText((Join-Path $payload 'Start-Setup.cmd'), ($cmd -replace "`r?`n", "`r`n"), [Text.ASCIIEncoding]::new())
     $readme = @"
-MANIM STUDIO RESEARCH - WINDOWS x64 ONLINE SETUP
+MANIM STUDIO $version - WINDOWS x64 ONLINE SETUP
 Source commit: $commit
 Branch: $SourceBranch
 
@@ -62,7 +65,8 @@ This bundle includes an exact Git source snapshot and a prebuilt VS Code extensi
 Internet is still required for Windows tools, Python packages, MiKTeX and Codex.
 Local SHA-256 checks detect damaged payloads; they are not a code-signing certificate.
 Run verify-windows-package.ps1 to check payload integrity, or setup-windows-research.ps1 -Plan.
-Full chat logging still requires the external prompt/response adapter.
+Research is disabled by default. Opt in explicitly from the agent workflow.
+Full chat logging requires a verified supported capture adapter.
 See windows-research-setup.md for installation details and limitations.
 "@
     [IO.File]::WriteAllText((Join-Path $payload 'README.txt'), $readme, [Text.UTF8Encoding]::new($false))
@@ -70,8 +74,16 @@ See windows-research-setup.md for installation details and limitations.
         [ordered]@{ path = $_.Name; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() }
     })
     $extension = [IO.File]::ReadAllText((Join-Path $repo 'vscode-extension/package.json')) | ConvertFrom-Json
+    if ($extension.version -ne $version) { throw 'Python and extension versions differ.' }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $archive = [IO.Compression.ZipFile]::OpenRead($vsixPath)
+    try {
+        $reader = [IO.StreamReader]::new($archive.GetEntry('extension/package.json').Open())
+        try { $packagedExtension = $reader.ReadToEnd() | ConvertFrom-Json } finally { $reader.Dispose() }
+        if ($packagedExtension.version -ne $version) { throw 'VSIX version differs from source.' }
+    } finally { $archive.Dispose() }
     $manifest = [ordered]@{
-        schema_version = 1; source_commit = $commit; source_branch = $SourceBranch
+        schema_version = 1; version = $version; source_commit = $commit; source_branch = $SourceBranch
         package_kind = 'online-bootstrap'; target = 'windows-x64'; extension_version = $extension.version
         built_at_utc = [DateTime]::UtcNow.ToString('o'); files = $files
     }

@@ -1,7 +1,7 @@
-# Windows research workstation: clean-machine setup
+# Windows installation — v0.1.0
 
 `setup-windows-research.ps1` bootstraps a **native Windows** workstation for the
-`research/prompt-logging` branch. It does not require Python, Git, npm, VS Code,
+pinned revision included in the installation package. It does not require Python, Git, npm, VS Code,
 FFmpeg, TeX, Docker or WSL beforehand. It runs with built-in Windows PowerShell 5.1.
 An Internet connection and administrator credentials are required.
 
@@ -9,7 +9,7 @@ An Internet connection and administrator credentials are required.
 ## Download a tested package from GitHub Actions
 
 Open [Windows research package](https://github.com/alonshoa/Manim-Studio/actions/workflows/windows-research-package.yml),
-select a successful run, and download the `Manim-Studio-Research-Windows-x64-<commit>`
+select a successful run, and download the `Manim-Studio-Windows-x64-<commit>`
 artifact. GitHub may require sign-in to download an Actions artifact. Extract the
 artifact, then extract its installation ZIP. Right-click `Start-Setup.cmd` and choose
 **Run as administrator** under the intended Windows account.
@@ -37,24 +37,20 @@ VSIX, then run:
 
 ```powershell
 .\scripts\build-windows-package.ps1 -Vsix 'C:\path\manim-studio-authoring.vsix'
-.\scripts\test-windows-package.ps1 -Package '.\dist\windows\Manim-Studio-Research-Windows-x64-COMMIT.zip'
+.\scripts\test-windows-package.ps1 -Package '.\dist\windows\Manim-Studio-Windows-x64-0.1.0-COMMIT.zip'
 ```
 
 Bundled reruns require a clean checkout at exactly the packaged commit; a different
-revision requires a different `-InstallRoot`. Standalone-script installs retain the
-original branch-based update behavior. This avoids silently mixing source/VSIX builds.
+revision requires a different `-InstallRoot`. Explicit development-source installs retain branch-based updates. This avoids silently mixing source/VSIX builds.
 
-## Run from a clean machine
+## Clean installation and development setup
 
-Download [setup-windows-research.ps1](https://github.com/alonshoa/Manim-Studio/blob/research/prompt-logging/scripts/setup-windows-research.ps1)
-using **Download raw file**, or run the following in **64-bit Windows PowerShell,
-Run as Administrator**, under the account that will use the workstation:
+For normal installation, download the complete verified package described above.
+Do not download a mutable branch script as a release installer. The historical script
+filename is retained for compatibility; the package is not limited to research use.
 
-```powershell
-$setup = Join-Path $env:USERPROFILE 'Downloads\setup-windows-research.ps1'
-Invoke-WebRequest -UseBasicParsing -Uri 'https://raw.githubusercontent.com/alonshoa/Manim-Studio/research/prompt-logging/scripts/setup-windows-research.ps1' -OutFile $setup
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File $setup
-```
+Standalone source setup is for contributors only and requires `-DevelopmentSource`.
+It follows `-Branch` (default `main`) and is not a pinned release installation.
 
 Read the downloaded script before running it if you want to inspect the changes.
 The command accepts software package/source agreements through WinGet. It changes
@@ -227,3 +223,20 @@ Reference documentation used for the bootstrap:
 - [DejaVu official downloads and checksum](https://dejavu-fonts.github.io/Download.html)
 - [VS Code extension packaging](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)
 - [Codex MCP configuration](https://developers.openai.com/codex/mcp/)
+
+## Optional research and privacy
+
+New installations leave capture disabled. `-EnableResearchCapture` explicitly opts into
+local tool-action logging; it does not prove complete chat capture or bind a conversation.
+The agent must separately verify `studio research status --json` and conversation binding
+before claiming capture is active. Existing installations retain their data and settings;
+rerunning setup without the switch does not revoke earlier consent or erase evidence.
+
+Use `studio-research configure` with `{"enabled":false}` on stdin to disable collection.
+See [privacy and collected data](../concepts/research-logging.md#event-schema-replay-and-privacy),
+[file scope](../concepts/research-artifacts.md), and [ZIP integrity/export](../concepts/research-integrity.md).
+Data stays in the project under `.manim-studio/research/`, including SQLite and retained
+blobs/jobs. Full exports can include prompts, responses, selected source files, accepted
+and rejected candidates and retained build outputs. Metadata exports still expose IDs,
+paths, timings and structural information. Review archives before sharing; consent does
+not redact secrets automatically. Finishing and exporting require explicit approval.

@@ -10,8 +10,10 @@
 [CmdletBinding()]
 param(
     [string]$InstallRoot = '',
-    [string]$Branch = 'research/prompt-logging',
+    [string]$Branch = 'main',
     [switch]$Plan,
+    [switch]$EnableResearchCapture,
+    [switch]$DevelopmentSource,
     [switch]$SkipCodex,
     [switch]$SkipRenderCheck
 )
@@ -424,6 +426,7 @@ function Install-ResearchWorkstation {
             branch = $Branch
             source_commit = $pinnedCommit
             bundled = ($null -ne $package)
+            research_capture = [bool]$EnableResearchCapture
             packages = @(Get-SetupPackages)
             remaining = @('Verified DejaVu fonts', 'project-local .venv', 'pinned project dependencies and pip check',
                 'compile and package local VS Code extension', 'Python/Codex extensions', 'research session and local logging',
@@ -433,6 +436,7 @@ function Install-ResearchWorkstation {
         } | ConvertTo-Json -Depth 8 | Write-Output
         return
     }
+    if (-not $package -and -not $DevelopmentSource) { throw 'Use a verified installation package, or explicitly select -DevelopmentSource for mutable branch setup.' }
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { throw 'This installer requires Windows.' }
     if (-not [Environment]::Is64BitProcess -or $env:PROCESSOR_ARCHITECTURE -ne 'AMD64') { throw 'Use 64-bit PowerShell on Windows x64 (ARM64 is not supported by this installer).' }
     $build = [int](Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').CurrentBuildNumber
@@ -506,6 +510,8 @@ function Install-ResearchWorkstation {
         }
         # Initialize logging via the Python API (no PowerShell 5.1 Unicode pipe loss).
         $sessionFile = Join-Path $root 'research-session.json'
+        $researchSession = ''
+        if ($EnableResearchCapture) {
         $sessionCode = @'
 import json,sys
 from pathlib import Path
@@ -526,6 +532,7 @@ print(data["session_id"])
         Write-Utf8 $sessionInitializer $sessionCode
         $researchSession = (& $venvPython $sessionInitializer $repo $sessionFile | Out-String).Trim()
         if ($LASTEXITCODE -ne 0) { throw 'Research session initialization failed.' }
+        }
         $env:MANIM_STUDIO_REPO_ROOT = $repo
         $env:MANIM_STUDIO_RESEARCH_SESSION = $researchSession
         $workspace = New-WorkspaceFiles $root $repo $venvPython $researchSession $code

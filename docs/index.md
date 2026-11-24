@@ -9,6 +9,13 @@ rendering workflow: registered scenes and decks, reproducible render profiles,
 isolated builds, named beats, reusable presentation helpers, and safe MCP
 services.
 
+## Start with Windows installation
+
+Use the [native Windows package](getting-started/windows-research-setup.md), open the
+installed workspace, connect the agent, explicitly choose Guided or Flexible, then
+create, review, render and export. Research capture is optional. See the
+[installation guide](getting-started/installation.md) for secondary development paths.
+
 ## Why Manim Studio?
 
 Manim already provides the animation engine. Manim Slides provides slide-based
@@ -219,8 +226,9 @@ MCP, or render. A configured runtime image must already be available.
 
 ## Current maturity and boundaries
 
-Manim Studio is an **early but working foundation**. The implemented workflow
-is centered on local, reproducible rendering and project services.
+Manim Studio **v0.1.0** includes interactive authoring, VS Code integration, a native
+Windows bootstrap package, and optional research infrastructure. Windows desktop
+and real-client acceptance requirements remain explicit in the release-readiness report.
 
 The following are intentionally not presented as finished capabilities:
 
@@ -232,10 +240,10 @@ The following are intentionally not presented as finished capabilities:
 - fully autonomous scene editing through MCP
 - unrestricted shell access through MCP
 - a zero-dependency public installer
-- automatic Codex or Claude configuration
+- automatic agent authentication or client-independent capture
 
-Public bootstrap installers, automatic client configuration, and cloud
-rendering remain future distribution work.
+Windows packages include local Codex MCP configuration. Agent authentication remains
+manual; cloud rendering is outside this release.
 
 ## Where to go next
 

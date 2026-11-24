@@ -1,4 +1,4 @@
-name: Windows research package
+name: Windows installation package
 
 "on":
   push:
@@ -132,7 +132,7 @@ jobs:
         id: upload
         uses: actions/upload-artifact@v4
         with:
-          name: Manim-Studio-Research-Windows-x64-${{ github.sha }}
+          name: Manim-Studio-Windows-x64-${{ github.sha }}
           path: dist/windows/*
           if-no-files-found: error
           retention-days: 30
@@ -142,6 +142,6 @@ jobs:
         env:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
         run: |
-          "## Windows research installation package" >> $env:GITHUB_STEP_SUMMARY
+          "## Windows installation package" >> $env:GITHUB_STEP_SUMMARY
           "[Download verified ZIP and SHA-256]($env:ARTIFACT_URL)" >> $env:GITHUB_STEP_SUMMARY
           "Extract the ZIP, then run Start-Setup.cmd as administrator. Internet is required for third-party dependencies." >> $env:GITHUB_STEP_SUMMARY
