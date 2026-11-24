@@ -31,3 +31,7 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.setuptools.data-files]
+"share/manim-studio/creator" = [".agents/skills/manim-studio-creator/SKILL.md"]
+"share/manim-studio/creator/references" = [".agents/skills/manim-studio-creator/references/guided.md", ".agents/skills/manim-studio-creator/references/flexible.md"]

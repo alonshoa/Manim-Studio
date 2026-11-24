@@ -66,6 +66,7 @@ WORKDIR /opt/manim-studio
 
 COPY --chown=manimuser:manimuser pyproject.toml README.md LICENSE ./
 COPY --chown=manimuser:manimuser src ./src
+COPY --chown=manimuser:manimuser .agents ./.agents
 
 USER manimuser
 

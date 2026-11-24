@@ -1,9 +1,7 @@
 # Manim Studio agent instructions
 
-Work within the existing Manim Studio architecture and inspect documentation and CLI help before making assumptions. Prefer small, testable changes. Do not claim tests or renders ran unless verified.
+For every new educational scene or deck creation task, the Manim-Studio Creator skill at `.agents/skills/manim-studio-creator/SKILL.md` is required. Obtain an explicit **Guided** or **Flexible** selection before creating content, unless the user has already explicitly selected a mode for this task. Never infer or silently select a mode. Read the corresponding reference before content creation. Existing-scene revisions also follow the skill; do not silently switch modes.
 
-For educational scene/deck creation, follow `.agents/skills/manim-studio-creator/SKILL.md` and select Guided or Flexible mode based on user intent.
+Research capture is optional and requires explicit consent. Verify research status and current conversation binding before claiming capture is active. Declining capture never blocks creation. Completion and export require user approval. Follow the shared skill for lifecycle commands and verification.
 
-At the start of each new Manim Studio deck-creation task, follow the research opt-in workflow in the creator skill. Never assume research capture is enabled or verified; do not claim a run is being recorded unless the research status confirms it. If the user declines, continue normally without repeated prompts for that task. Offer to finish an active research run at the end, but do not close it without approval.
-
-Keep narrative planning distinct from visual design and implementation. Respect Hebrew RTL rendering needs. Do not overwrite existing scenes or modify installation/release workflows without checking their impact.
+Inspect available CLI commands and project context. Preserve existing work. Check rendered Hebrew RTL and mathematics. Report only verified results.

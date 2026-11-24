@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -144,12 +145,13 @@ def _validate_class_name(value: str) -> None:
 
 
 def _render_files(options: ProjectOptions) -> tuple[tuple[Path, str], ...]:
-    return tuple(
+    return _creator_files() + tuple(
         (Path(path), content)
         for path, content in (
             (".gitignore", _gitignore()),
             ("README.md", _readme(options)),
             ("AGENTS.md", _agents(options)),
+            ("CLAUDE.md", _agents(options)),
             ("compose.yml", _compose(options)),
             ("mcp.manim-studio.json", _mcp_json(options)),
             ("catalog/scenes.yaml", _catalog(options)),
@@ -167,6 +169,23 @@ def _render_files(options: ProjectOptions) -> tuple[tuple[Path, str], ...]:
     )
 
 
+def _creator_files() -> tuple[tuple[Path, str], ...]:
+    # Source checkout and installed wheel use the same canonical skill bytes.
+    roots = (
+        Path(__file__).resolve().parents[2] / ".agents/skills/manim-studio-creator",
+        Path(sys.prefix) / "share/manim-studio/creator",
+    )
+    root = next((candidate for candidate in roots if (candidate / "SKILL.md").is_file()), None)
+    if root is None:
+        raise ProjectBuilderError("Creator skill is missing; reinstall Manim Studio before initializing a project")
+    files = []
+    for client in (".agents", ".claude"):
+        for relative in ("SKILL.md", "references/guided.md", "references/flexible.md"):
+            files.append((Path(client) / "skills/manim-studio-creator" / relative,
+                          (root / relative).read_text(encoding="utf-8")))
+    return tuple(files)
+
+
 def _gitignore() -> str:
     return """# Python
 __pycache__/
@@ -181,6 +200,9 @@ env/
 .env.*
 
 # Manim Studio generated output
+.manim-studio/
+.codex/config.toml
+.codex/hooks.json
 builds/
 media/
 slides/
@@ -234,6 +256,11 @@ def _agents(options: ProjectOptions) -> str:
     return f"""# Manim Studio Agent Notes
 
 This is an external Manim Studio project.
+
+For every new educational scene or deck creation task, the Manim-Studio Creator skill at `.agents/skills/manim-studio-creator/SKILL.md` is required. Obtain an explicit **Guided** or **Flexible** selection before creating content, unless the user has already explicitly selected a mode for this task. Never infer or silently select a mode. Read the corresponding reference before content creation. Existing-scene revisions also follow the skill; do not silently switch modes.
+
+Research capture is optional and requires explicit consent. Verify research status and current conversation binding before claiming capture is active. Declining capture never blocks creation. Completion and export require user approval. Follow the shared skill for lifecycle commands and verification.
+
 
 - Python scene files are the source of truth.
 - Every Studio scene must be registered in `catalog/scenes.yaml`.
@@ -352,7 +379,12 @@ Copy curated review frames here after rendering when you want tracked baselines.
 def _conventions(options: ProjectOptions) -> str:
     return f"""# {options.name} Conventions
 
-This is an external Manim Studio project. Python scene files are the source of
+This is an external Manim Studio project.
+
+For every new educational scene or deck creation task, the Manim-Studio Creator skill at `.agents/skills/manim-studio-creator/SKILL.md` is required. Obtain an explicit **Guided** or **Flexible** selection before creating content, unless the user has already explicitly selected a mode for this task. Never infer or silently select a mode. Read the corresponding reference before content creation. Existing-scene revisions also follow the skill; do not silently switch modes.
+
+Research capture is optional and requires explicit consent. Verify research status and current conversation binding before claiming capture is active. Declining capture never blocks creation. Completion and export require user approval. Follow the shared skill for lifecycle commands and verification.
+ Python scene files are the source of
 truth, and `catalog/scenes.yaml` registers scenes for Studio CLI and MCP tools.
 
 - Keep deck-specific scenes under `decks/{options.deck_id}/`.

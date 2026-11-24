@@ -10,13 +10,13 @@ First inspect the project, available `studio` commands and MCP capabilities. Nev
 
 ## Research opt-in lifecycle
 
-At the beginning of each new deck-creation task, check whether a research session is already active. If none is active, ask once whether the user wants research capture enabled. A refusal must not block normal authoring and must not be re-asked within the same task.
+At the beginning of each new scene or deck creation task, check whether a research session is already active. If none is active, ask once whether the user wants research capture enabled. A refusal must not block normal authoring and must not be re-asked within the same task.
 
 When approved, use `studio research start --json`. The hooks must already have been installed and trusted; this command does not silently install or approve them. If the result is `ACTION_REQUIRED`, follow `next_action`: submit a new prompt so the hook can identify the current conversation, and retry start (supply `--thread-id` if more than one unbound source exists). Never silently choose a thread when ambiguous. A configured or enabled flag is not evidence that the current Codex conversation is captured. If the current conversation cannot be bound and verified, explicitly report the limitation and ask whether to proceed unrecorded or fix the capture setup. Never assert READY without observed capture evidence.
 
 At the end of an active research task, ask whether to finish. On approval use `studio research finish --destination <absolute-zip-path-outside-project> --json`. The command queues asynchronous integrity and export jobs; poll `integrity.status` and `exports.status`, and verify the resulting ZIP before reporting success. Report incomplete coverage and failed exports; never describe partial capture as complete. Treat research initialization and closing as system setup, not content-authoring interventions.
 
-Ask whether to use **Guided** or **Flexible** mode if the user's preference is unclear. Follow the corresponding reference document.
+Before every new creation task, obtain an explicit **Guided** or **Flexible** selection unless the user has already explicitly selected one for this task. Never infer or silently select a mode. Read the corresponding reference document before creating content. A change of mode also requires explicit selection.
 
 Keep pedagogical narrative, visual storyboard and implementation separate. Preserve existing work and scene identifiers. Prefer targeted edits and draft renders, then inspect results before final export. Report commands, artifacts and unresolved issues accurately. Never claim a render succeeded without checking it.
 
