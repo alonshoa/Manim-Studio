@@ -49,3 +49,14 @@ Thumbs.db
 
 # Generated Windows distribution bundles
 dist/
+
+# Local research and distribution output (never evidence under validation/)
+*.sqlite
+*.sqlite3
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.vsix
+*.pem
+*.key
+.codex/research-context.json

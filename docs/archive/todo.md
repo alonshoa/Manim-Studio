@@ -1,3 +1,5 @@
+> Historical planning snapshot; not the current release checklist. See [release readiness](../release-readiness-v0.1.0.md).
+
 # Manim Studio — רשימת השלמות להמשך
 
 תאריך: 30.10.2026  
