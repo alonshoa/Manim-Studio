@@ -90,8 +90,8 @@ need changes during release preparation.
 ## Stage 4 — Executed verification
 
 Environment: Linux, Python 3.12, isolated test environments, PowerShell 7.4.13.
-Python suite/build and extension checks cover the implementation in `60c2fdd`;
-PowerShell package checks cover `3373f79` (same implementation plus the corrected
+Python suite/build and extension checks cover local preparation revision `60c2fdd`;
+PowerShell package checks cover local preparation revision `3373f79` (same implementation plus the corrected
 setup-test variable). Later changes are documentation/report corrections only.
 
 | Check | Result and evidence |
@@ -160,14 +160,20 @@ Preparation commits, preserving existing history:
 
 | Commit | Purpose |
 | --- | --- |
-| `b0c4918` | Archive planning; inventory preserved evidence and local-output exclusions. |
-| `94ab889` | Explicit authoring modes and shared skills in external/installed projects. |
-| `627fe4a` | Windows distribution, optional setup capture and v0.1.0 documentation. |
-| `60c2fdd` | Hook-preparation CLI regression, workflow contracts and navigation. |
-| `3373f79` | Correct the setup regression test variable collision. |
-| This report commit | Final readiness evidence and documentation consistency. |
+| `8a8bdc0` | Archive planning; inventory preserved evidence and local-output exclusions. |
+| `bbd79eb` | Explicit authoring modes and shared skills in external/installed projects. |
+| `cda8c6a` | Windows distribution, optional setup capture and v0.1.0 documentation. |
+| `4cc121d` | Hook-preparation CLI regression, workflow contracts and navigation. |
+| `f33c72f` | Correct the setup regression test variable collision. |
+| `8b1f765` | Final readiness evidence and documentation consistency. |
+| This report synchronization | Record connected-upload commit identities and source equivalence. |
 
-The branch is intended to be pushed normally and opened as a draft PR targeting
+Command-line push was unavailable because this checkout has no GitHub credentials.
+The connected GitHub route reproduced the six commits in order, verifying exact
+Git tree equality for each, and preserves the original `4dad2f1` ancestry. Commit
+messages retain `Local-preparation-commit` provenance for the tested local revisions.
+This final documentation-only synchronization records the resulting commit IDs.
+The branch is updated by a guarded fast-forward and opened as a draft PR targeting
 main, with this report and remaining requirements in the PR description. The PR URL
 and final commit are supplied in the completion handoff. No squash, rebase,
 force-push, merge, release tag or GitHub Release is part of this task.
