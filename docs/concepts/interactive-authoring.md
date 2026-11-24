@@ -79,7 +79,6 @@ Manim command construction in Python.
 This milestone supports local desktop VS Code with local Python. WSL,
 devcontainers, and remote workspaces are experimental.
 
-Existing checked-in sessions under `decks/test-movie`,
-`decks/interactive-vsc`, and `decks/interactive/interactive-vstest-bfd60b`
-appear to be manual smoke-test artifacts. They should be reviewed before a
-future PR cleanup, but this workflow does not delete or rewrite them.
+Checked-in movie/client smoke sessions and their step ledgers are preserved as
+historical evidence. See the [artifact inventory](../archive/README.md) for their
+classification. They are not claims of current real-client acceptance.

@@ -60,3 +60,6 @@ dist/
 *.pem
 *.key
 .codex/research-context.json
+
+# Python wheel/sdist staging
+build/

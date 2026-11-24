@@ -31,6 +31,7 @@ nav:
   - Home: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
+      - Windows Setup: getting-started/windows-research-setup.md
       - Quick Start: getting-started/quick-start.md
       - External Projects: getting-started/external-projects.md
   - Core Concepts:
@@ -67,6 +68,14 @@ nav:
       - Configuration: reference/configuration.md
       - Troubleshooting: reference/troubleshooting.md
       - MCP Conventions Resource: conventions.md
+  - Optional Research:
+      - Capture and Privacy: concepts/research-logging.md
+      - Sessions: concepts/research-sessions.md
+      - Prompt Classification: concepts/prompt-classification-ui.md
+      - Artifacts: concepts/research-artifacts.md
+      - Time Tracking: concepts/research-time.md
+      - Integrity and Export: concepts/research-integrity.md
+  - Release Readiness: release-readiness-v0.1.0.md
   - Contributing:
       - Development: contributing/development.md
       - Documentation: contributing/documentation.md

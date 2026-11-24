@@ -131,7 +131,7 @@ class ScenePreflightValidationTests(unittest.TestCase):
             manim = scripts_dir / "manim.exe"
             manim.write_text("", encoding="utf-8")
 
-            with mock.patch("manim_studio.validation.shutil.which", return_value=None), mock.patch(
+            with mock.patch("manim_studio.validation.sys.platform", "win32"), mock.patch("manim_studio.validation.shutil.which", return_value=None), mock.patch(
                 "manim_studio.validation.sys.executable",
                 str(scripts_dir / "python.exe"),
             ):

@@ -52,3 +52,17 @@ def test_start_after_preparation_enables_only_on_explicit_request(tmp_path):
     assert ResearchLog(tmp_path).enabled
     assert result['status'] == 'ACTION_REQUIRED'
     assert result['capture_verified'] is False
+
+
+def test_prepare_command_is_exposed_without_enabling_capture(tmp_path):
+    import json
+    import subprocess
+    import sys
+    result = subprocess.run(
+        [sys.executable, "-m", "manim_studio.research_cli", "--root", str(tmp_path), "codex-prepare"],
+        capture_output=True, text=True, check=True,
+    )
+    assert json.loads(result.stdout)["ok"]
+    from manim_studio.research import ResearchLog
+    assert not ResearchLog(tmp_path).enabled
+    assert not (tmp_path / ".manim-studio/research/events.sqlite3").exists()

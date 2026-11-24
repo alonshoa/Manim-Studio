@@ -9,7 +9,7 @@ An Internet connection and administrator credentials are required.
 ## Download a tested package from GitHub Actions
 
 Open [Windows research package](https://github.com/alonshoa/Manim-Studio/actions/workflows/windows-research-package.yml),
-select a successful run, and download the `Manim-Studio-Windows-x64-<commit>`
+select a successful run, and download the `Manim-Studio-Windows-x64-<commit>` (the inner ZIP also includes the version)
 artifact. GitHub may require sign-in to download an Actions artifact. Extract the
 artifact, then extract its installation ZIP. Right-click `Start-Setup.cmd` and choose
 **Run as administrator** under the intended Windows account.
@@ -228,7 +228,7 @@ Reference documentation used for the bootstrap:
 
 New installations leave capture disabled. `-EnableResearchCapture` explicitly opts into
 local tool-action logging; it does not prove complete chat capture or bind a conversation.
-The agent must separately verify `studio research status --json` and conversation binding
+The agent must separately verify `studio-research capture-status` and conversation binding
 before claiming capture is active. Existing installations retain their data and settings;
 rerunning setup without the switch does not revoke earlier consent or erase evidence.
 

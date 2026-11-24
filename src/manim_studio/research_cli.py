@@ -94,7 +94,7 @@ def main():
     parser.add_argument('--root', type=Path, default=Path.cwd())
     parser.add_argument('action', choices=['configure', 'start_session', 'record_prompt',
                                          'record_response', 'classify', 'export', 'schema', 'status',
-                                         'codex-connect', 'codex-config', 'codex-hook', 'capture-status'] +
+                                         'codex-connect', 'codex-prepare', 'codex-config', 'codex-hook', 'capture-status'] +
                                         ['research.' + action for action in ACTIONS] +
                                         ['classification.' + action for action in ANNOTATIONS] + ['artifacts.' + action for action in ARTIFACTS] + ['timing.' + action for action in TIMING] + [ns + '.' + action for ns, actions in JOBS.items() for action in actions] + ['rpc'])
     args = parser.parse_args()
