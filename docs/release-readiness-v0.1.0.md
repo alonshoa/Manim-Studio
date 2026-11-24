@@ -22,8 +22,8 @@ audit or a claim that every research result has been independently reproduced.
   contents/history and repaired their relative documentation links.
 - Added [an inventory](archive/README.md) classifying scratch decks, empty client
   smoke sessions, accepted-step ledgers, tests, baselines, design records and
-  historical validation reports. All experiment files, catalog IDs and references
-  remain intact. No research evidence was deleted or relocated.
+  historical validation reports. The initial pass preserved all experiment files;
+  the subsequent maintainer-approved cleanup below removes only empty/trivial sessions.
 - Expanded `.gitignore` for local research databases, SQLite journals, VSIX/private
   key output and Python build staging. Existing build/media/log/config exclusions
   remain in place. Generated packages and test environments were not committed.
@@ -34,8 +34,17 @@ audit or a claim that every research result has been independently reproduced.
   Retained demo transcripts, synthetic fixture paths and historical result metadata
   are documented evidence. This scan cannot establish absence of every secret.
 
-Files removed: **none**, other than the original paths of the two archived TODO
-files. `catalog/scenes.yaml`, scratch sources/ledgers and `validation/` are preserved.
+Subsequent PR review: the maintainer explicitly authorized deleting empty or
+uninteresting development decks. Removed two empty VS Code smoke sessions and three
+identical red-dot scaling sessions from `decks/interactive-vsc/`, `decks/interactive/`,
+`decks/interactive-test/` and `decks/interactive-test1/`, including their five `.py`
+sources, five `.steps.json` ledgers and five catalog entries. The six remaining
+registered scenes retain the substantive examples and the incremental axes/sine
+movie. No tests or documentation commands refer to the removed scene IDs.
+
+The former paths remain recoverable from Git history. Research databases, historical
+`validation/` output, the axes/sine ledger and curated baselines remain untouched.
+The two historical TODO files were moved rather than discarded.
 
 ## Stage 2 — Agent instructions and skills
 

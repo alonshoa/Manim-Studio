@@ -8,13 +8,17 @@ research analysis and adaptive checkpoints remain future proposals, not v0.1.0 c
 
 | Paths | Classification and disposition |
 | --- | --- |
-| `decks/interactive-test/`, `decks/interactive-test1/` | Historical accepted-step movie experiments; preserve sources, ledgers and catalog IDs for reproducibility. |
-| `decks/interactive-vsc/`, `decks/interactive/` | Historical client smoke sessions, including empty slates; preserve pending explicit evidence-disposal approval. |
+| `decks/interactive-test/`, `decks/interactive-test1/` | Removed on maintainer request: duplicate red-dot scaling smoke sessions without educational content; source/ledgers remain recoverable from Git history. |
+| `decks/interactive-vsc/`, `decks/interactive/` | Removed on maintainer request: two empty scenes and the third identical red-dot scaling session; matching catalog entries removed. |
 | `decks/test-movie/` | Incremental axes/sine movie example with accepted-change history; retain. |
 | `validation/` | Historical test/browser/package reports; retain unchanged. They are not results for this release revision. |
 | `tests/fixtures/`, `baselines/` | Regression fixtures and curated rendering references; retain. |
 | `docs/design/` | Research lifecycle design history; retain. |
 | `scripts/*demo*`, `scripts/test-*-ui.js` | Reproducible UI demonstrations/checks; retain. |
 
-No experiment evidence has been deleted or relocated. No scene IDs were changed.
+The initial release review preserved all sessions. In the subsequent PR review, the
+maintainer explicitly requested removal of empty and trivial/duplicate development
+decks. Five such sessions (ten source/ledger files) and their catalog entries were
+removed. Git history, substantive examples, research databases and historical
+validation evidence were not rewritten or purged.
 No duplicate issues were opened after reviewing the current issue tracker.

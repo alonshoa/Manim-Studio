@@ -79,6 +79,7 @@ Manim command construction in Python.
 This milestone supports local desktop VS Code with local Python. WSL,
 devcontainers, and remote workspaces are experimental.
 
-Checked-in movie/client smoke sessions and their step ledgers are preserved as
-historical evidence. See the [artifact inventory](../archive/README.md) for their
-classification. They are not claims of current real-client acceptance.
+The incremental axes/sine movie in `decks/test-movie` and its step ledger remain
+as a substantive example. Empty and duplicate client smoke scenes were removed
+after maintainer review. See the [artifact inventory](../archive/README.md) for
+their disposition; prior versions remain in Git history.
