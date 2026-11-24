@@ -32,6 +32,20 @@ RUN apt-get update \
         fonts-noto-core \
         fonts-noto-extra \
         fonts-noto-ui-core \
+        libegl1 \
+        libgl1 \
+        libgl1-mesa-dri \
+        libgles2 \
+        libglx-mesa0 \
+        libxcursor1 \
+        libxext6 \
+        libxi6 \
+        libxinerama1 \
+        libxkbcommon0 \
+        libxkbcommon-x11-0 \
+        libxrandr2 \
+        libxrender1 \
+        mesa-utils \
         texlive \
         texlive-fonts-recommended \
         texlive-lang-arabic \
@@ -52,6 +66,7 @@ WORKDIR /opt/manim-studio
 
 COPY --chown=manimuser:manimuser pyproject.toml README.md LICENSE ./
 COPY --chown=manimuser:manimuser src ./src
+COPY --chown=manimuser:manimuser .agents ./.agents
 
 USER manimuser
 

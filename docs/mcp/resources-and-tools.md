@@ -28,6 +28,23 @@ unrestricted shell.
 - `render_scene_patch`
 - `apply_scene_patch`
 - `propose_render_debug_patch`
+- `start_movie_session`
+- `get_movie_session`
+- `list_authoring_sessions`
+- `get_authoring_session_status`
+- `discover_active_proposal`
+- `propose_movie_step`
+- `propose_next_movie_step`
+- `preview_movie_step`
+- `accept_movie_step`
+- `reject_movie_step`
+- `revise_movie_step`
+- `pause_authoring_session`
+- `resume_authoring_session`
+- `finish_authoring_session`
+- `start_authoring_live`
+- `restart_authoring_live`
+- `stop_authoring_live`
 - `export_deck`
 
 ## Response Envelope
@@ -72,3 +89,46 @@ use `renderer: manim-slides`.
 ```
 
 Other formats return `unsupported`; mixed decks return `unsupported_deck`.
+
+## Movie Session Tools
+
+`start_movie_session` creates a registered empty-slate scene and initializes
+controller-owned authoring state.
+
+`propose_movie_step` stages a small addon against the session target. The
+canonical source remains unchanged.
+
+`propose_next_movie_step` is the default free-form authoring path. It accepts a
+Python body plus title/rationale; Studio chooses the next step ID, insertion
+point inside `construct()`, marker block, beat call, and staged candidate source.
+
+`preview_movie_step` selects the staged candidate workspace for live preview and
+returns compact state:
+
+```json
+{
+  "ok": true,
+  "status": "preview_ready",
+  "data": {
+    "session_id": "story-scratch-abc12345",
+    "proposal_id": "20260809-190000-patch-story-scratch-abc12345",
+    "revision": 0,
+    "beat": "step_001",
+    "changed_lines": "8-11",
+    "warnings": []
+  },
+  "error": null
+}
+```
+
+`accept_movie_step` requires `confirm: "accept"`. It validates, draft-renders,
+applies the staged proposal to the canonical source, appends the accepted step
+to the ledger, and returns compact authoring state.
+
+`reject_movie_step` clears the active proposal and returns live preview to the
+last accepted canonical revision. Use `get_movie_session` only when full
+accepted-step history is explicitly needed.
+
+`revise_movie_step` stores feedback without accepting or destroying the old
+candidate. `pause_authoring_session`, `resume_authoring_session`, and
+`finish_authoring_session` drive the explicit free-form workflow lifecycle.

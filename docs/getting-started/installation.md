@@ -1,5 +1,20 @@
 # Installation
 
+## Recommended: native Windows installation
+
+Use the verified [Windows installation package](windows-research-setup.md): extract
+and run `Start-Setup.cmd`, then open the installed workspace. Internet and administrator
+access are required for setup. Agent sign-in/trust are separate. Research is optional;
+new installations do not enable capture automatically.
+
+Create content through the Creator skill after explicitly selecting Guided or Flexible.
+Review drafts before rendering/exporting the final deck. The installed workspace is the
+native starting point. `studio project init` also distributes the skill and instructions,
+but its generated wrappers and MCP snippet default to Docker; configure native `studio`
+and `manim-mcp` paths for a separate native project.
+
+## Secondary development paths
+
 Manim Studio supports three local development paths:
 
 - reusable Docker runtime for this repo or external Manim projects
@@ -52,6 +67,26 @@ Open the repository in VS Code and run **Dev Containers: Reopen in Container**.
 The devcontainer builds the `dev` target from the root `Dockerfile`, installs
 the package in editable mode, and runs `studio doctor` after creation.
 
+The devcontainer also forwards WSLg/X11 display sockets for the experimental
+OpenGL live-preview workflow. This path is intended for Windows + WSLg with the
+repository opened from the WSL filesystem. The default configuration mounts
+`/mnt/wslg` and `/tmp/.X11-unix`, forwards `DISPLAY`, `WAYLAND_DISPLAY`,
+`XDG_RUNTIME_DIR`, and `PULSE_SERVER`, and enables `LIBGL_ALWAYS_SOFTWARE=1` for
+predictable Mesa-based OpenGL startup.
+
+After reopening in the devcontainer, test live-preview prerequisites with:
+
+```bash
+studio live matrix_work/vectors_ab_to_v --beat resultant --diagnose
+```
+
+If the WSLg paths are unavailable on the host, use local host Python for
+`studio live` or use the headless beat render fallback:
+
+```bash
+studio render matrix_work/vectors_ab_to_v --profile draft --beat resultant
+```
+
 ## Local Python Install
 
 For non-container development, use Python 3.11 or newer:
@@ -62,8 +97,7 @@ python -m pip install -e ".[dev]"
 
 This path expects the local machine to already provide compatible render
 prerequisites such as Manim, Manim Slides, FFmpeg, LaTeX/XeLaTeX, `dvisvgm`, and
-Hebrew-capable fonts. The Docker runtime is the supported reproducible path when
-those tools are not already installed.
+Hebrew-capable fonts. The Windows package prepares these prerequisites; Docker remains a secondary reproducible development path.
 
 ## Verify Installation
 

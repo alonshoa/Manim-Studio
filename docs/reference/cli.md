@@ -113,6 +113,108 @@ List named beats discovered in a registered scene:
 studio beats <deck-id>/<scene-id>
 ```
 
+## `studio live`
+
+Start an experimental OpenGL live-preview session at a named beat:
+
+```bash
+studio live <deck-id>/<scene-id> --beat <beat-id>
+```
+
+Print environment diagnostics before starting:
+
+```bash
+studio live <deck-id>/<scene-id> --beat <beat-id> --diagnose
+```
+
+Options:
+
+- `--beat <beat-id>` (required)
+- `--repo-root`
+- `--catalog`
+- `--live-root`
+- `--diagnose`
+
+Live preview uses local host Python and Manim CE's OpenGL renderer. It is not
+part of the Docker/Cairo final-render path and does not create normal Studio
+build manifests. See [Live Preview](../concepts/live-preview.md) for the
+current limitations and manual GUI smoke test.
+
+## `studio session`
+
+Create and maintain interactive movie sessions.
+
+Start a registered empty-slate scene:
+
+```bash
+studio session start --title "Vector Movie" --deck-id vector_movie
+```
+
+Options:
+
+- `--title`
+- `--deck-id`
+- `--scene-id`
+- `--class-name`
+- `--repo-root`
+- `--catalog`
+
+Inspect the accepted step ledger:
+
+```bash
+studio session inspect <session-id>
+```
+
+Accept a staged proposal after validation and draft render:
+
+```bash
+studio session accept <session-id> <proposal-id> --confirm accept
+```
+
+Options:
+
+- `--note`
+- `--confirm`
+- `--repo-root`
+- `--builds-root`
+
+Session start writes a normal catalog entry and a source file under `decks/`.
+Accepted proposals are recorded in a `.steps.json` file beside the source. See
+[Movie Sessions](../concepts/movie-sessions.md).
+
+## `studio authoring`
+
+Run the controller-backed interactive authoring workflow used by CLI, MCP, and
+the VS Code extension.
+
+```bash
+studio authoring start --title "Vector Movie" --deck-id vector_movie
+studio authoring list
+studio authoring status <session-id>
+studio authoring append <session-id> --title "Show title" --body "title = Text('Vector')"
+studio authoring discover <session-id>
+studio authoring live-start <session-id>
+studio authoring preview <session-id> [proposal-id]
+studio authoring accept <session-id> [proposal-id] --confirm accept
+studio authoring reject <session-id> [proposal-id]
+studio authoring revise <session-id> --feedback "Move the title higher" [proposal-id]
+studio authoring pause <session-id>
+studio authoring resume <session-id>
+studio authoring finish <session-id>
+studio authoring live-restart <session-id>
+studio authoring live-stop <session-id>
+```
+
+Add `--json` to command-style operations for compact machine-readable output.
+The VS Code extension uses:
+
+```bash
+studio authoring rpc
+```
+
+This mode communicates over JSON lines on stdio and does not expose a network
+port.
+
 ## `studio render`
 
 Render one registered scene into an isolated build directory:

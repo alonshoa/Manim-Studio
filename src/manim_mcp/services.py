@@ -21,10 +21,13 @@ from manim_studio.catalog import (
     parse_scene_target,
 )
 from manim_studio.profiles import get_profile, profile_names
+from manim_studio import movie_sessions
+from manim_studio.authoring_sessions import AuthoringSessionController, AuthoringSessionError
 from manim_studio import staged_edits
 from manim_studio.validation import validate_scene_preflight
 
 from manim_mcp.schemas import failure, success
+from manim_studio.research import instrument
 
 
 DEFAULT_CATALOG_PATH = "catalog/scenes.yaml"
@@ -38,15 +41,31 @@ class StudioContext:
     builds_root: Path | str = DEFAULT_BUILDS_ROOT
     runner: Any = subprocess.run
     check_executables: bool = True
+    research_session_id: str | None = None
+    research_prompt_id: str | None = None
+    research_client_id: str | None = None
+    research_context_origin: str = 'explicit'
+    research_decision_origin: str = 'unknown'
+    research_origin_evidence: str | None = None
+    research_request_id: str | None = None
+
+    def __post_init__(self) -> None:
+        # Resolve aliases (including Windows 8.3 names) before containment checks.
+        object.__setattr__(self, "repo_root", Path(self.repo_root).resolve())
 
 
 def default_context() -> StudioContext:
     root = Path(os.environ.get("MANIM_STUDIO_REPO_ROOT", Path.cwd())).resolve()
     catalog_path = os.environ.get("MANIM_STUDIO_CATALOG", DEFAULT_CATALOG_PATH)
     builds_root = os.environ.get("MANIM_STUDIO_BUILDS_ROOT", DEFAULT_BUILDS_ROOT)
-    return StudioContext(root, catalog_path=catalog_path, builds_root=builds_root)
+    return StudioContext(root, catalog_path=catalog_path, builds_root=builds_root,
+                         research_session_id=os.environ.get("MANIM_STUDIO_RESEARCH_SESSION"),
+                         research_prompt_id=os.environ.get("MANIM_STUDIO_RESEARCH_PROMPT"),
+                         research_client_id=os.environ.get("MANIM_STUDIO_RESEARCH_CLIENT"),
+                         research_context_origin='environment')
 
 
+@instrument
 def list_decks(context: StudioContext | None = None) -> dict[str, Any]:
     ctx = context or default_context()
     result = _load_entries(ctx)
@@ -72,6 +91,7 @@ def list_decks(context: StudioContext | None = None) -> dict[str, Any]:
     )
 
 
+@instrument
 def get_scene_context(target: str, context: StudioContext | None = None) -> dict[str, Any]:
     ctx = context or default_context()
     entry_result = _select_scene(ctx, target)
@@ -97,6 +117,7 @@ def get_scene_context(target: str, context: StudioContext | None = None) -> dict
     )
 
 
+@instrument
 def validate_scene(
     target: str,
     profile: str = "draft",
@@ -129,6 +150,7 @@ def validate_scene(
     return success(data)
 
 
+@instrument
 def render_scene(
     target: str,
     profile: str = "draft",
@@ -155,6 +177,7 @@ def render_scene(
     return _build_response(ctx, build.build_id)
 
 
+@instrument
 def render_beat(
     target: str,
     beat_id: str,
@@ -201,6 +224,7 @@ def render_beat(
     return _build_response(ctx, build.build_id)
 
 
+@instrument
 def build_deck(
     deck_id: str,
     profile: str = "review",
@@ -235,6 +259,7 @@ def build_deck(
     return _build_response(ctx, build.build_id)
 
 
+@instrument
 def get_build_manifest(
     build_id: str,
     context: StudioContext | None = None,
@@ -252,6 +277,7 @@ def get_build_manifest(
     )
 
 
+@instrument
 def get_artifacts(build_id: str, context: StudioContext | None = None) -> dict[str, Any]:
     ctx = context or default_context()
     inspection_result = _inspect(ctx, build_id)
@@ -267,6 +293,7 @@ def get_artifacts(build_id: str, context: StudioContext | None = None) -> dict[s
     )
 
 
+@instrument
 def get_build_log(
     build_id: str,
     stream: Literal["stdout", "stderr"] = "stdout",
@@ -314,6 +341,7 @@ def get_build_log(
     )
 
 
+@instrument
 def propose_scene_patch(
     target: str,
     edits: list[dict[str, Any]],
@@ -340,6 +368,7 @@ def propose_scene_patch(
     return success(data, status="proposed")
 
 
+@instrument
 def inspect_scene_patch(
     proposal_id: str,
     context: StudioContext | None = None,
@@ -351,6 +380,7 @@ def inspect_scene_patch(
         return _staged_error(exc)
 
 
+@instrument
 def validate_scene_patch(
     proposal_id: str,
     profile: str = "draft",
@@ -382,6 +412,7 @@ def validate_scene_patch(
     return success(data)
 
 
+@instrument
 def render_scene_patch(
     proposal_id: str,
     context: StudioContext | None = None,
@@ -412,6 +443,7 @@ def render_scene_patch(
     return success(data, status=build.status)
 
 
+@instrument
 def apply_scene_patch(
     proposal_id: str,
     confirm: str = "apply",
@@ -445,6 +477,7 @@ def apply_scene_patch(
     return success(data, status="applied")
 
 
+@instrument
 def propose_render_debug_patch(
     target: str,
     build_id: str,
@@ -479,6 +512,259 @@ def propose_render_debug_patch(
     return success(data, status="proposed")
 
 
+@instrument
+def start_movie_session(
+    title: str = "Interactive Movie",
+    deck_id: str = "interactive",
+    scene_id: str | None = None,
+    class_name: str | None = None,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).start_session(
+            title=title,
+            deck_id=deck_id,
+            scene_id=scene_id,
+            class_name=class_name,
+        )
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "movie session could not be started", detail=str(exc))
+    return success(data, status="started")
+
+
+@instrument
+def get_movie_session(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = movie_sessions.get_movie_session(ctx.repo_root, session_id)
+    except movie_sessions.MovieSessionError as exc:
+        return _movie_session_error(exc)
+    return success(data)
+
+
+@instrument
+def list_authoring_sessions(context: StudioContext | None = None) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).list_sessions())
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def propose_movie_step(
+    session_id: str,
+    edits: list[dict[str, Any]],
+    rationale: str = "",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = movie_sessions.propose_movie_step(
+            ctx.repo_root,
+            ctx.catalog_path,
+            ctx.builds_root,
+            session_id,
+            edits,
+            rationale,
+        )
+    except movie_sessions.MovieSessionError as exc:
+        return _movie_session_error(exc)
+    except staged_edits.StagedEditError as exc:
+        return _staged_error(exc)
+    except OSError as exc:
+        return failure("internal_error", "movie step could not be proposed", detail=str(exc))
+    return success(data, status="proposed")
+
+
+@instrument
+def propose_next_movie_step(
+    session_id: str,
+    body: str,
+    title: str = "Next step",
+    rationale: str = "",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).propose_next_movie_step(
+            session_id,
+            body,
+            title=title,
+            rationale=rationale,
+        )
+    except (movie_sessions.MovieSessionError, staged_edits.StagedEditError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    except (SyntaxError, OSError) as exc:
+        return failure("validation_failed", "next movie step could not be proposed", detail=str(exc))
+    return success(data, status="proposed")
+
+
+@instrument
+def get_authoring_session_status(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).get_status(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def discover_active_proposal(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).discover_active_proposal(session_id))
+    except (movie_sessions.MovieSessionError, staged_edits.StagedEditError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def preview_movie_step(
+    session_id: str,
+    proposal_id: str | None = None,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).preview_proposal(session_id, proposal_id)
+    except (movie_sessions.MovieSessionError, staged_edits.StagedEditError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    except SyntaxError as exc:
+        return failure("validation_failed", "proposal source has invalid Python syntax", detail=str(exc))
+    return success(data, status="preview_ready")
+
+
+@instrument
+def accept_movie_step(
+    session_id: str,
+    proposal_id: str | None = None,
+    note: str = "",
+    confirm: str = "accept",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).accept_proposal(
+            session_id,
+            proposal_id,
+            note=note,
+            confirm=confirm,
+        )
+    except (movie_sessions.MovieSessionError, staged_edits.StagedEditError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    except SyntaxError as exc:
+        return failure("validation_failed", "proposal source has invalid Python syntax", detail=str(exc))
+    except OSError as exc:
+        return failure("internal_error", "movie step could not be accepted", detail=str(exc))
+    return success(data, status="accepted")
+
+
+@instrument
+def reject_movie_step(
+    session_id: str,
+    proposal_id: str | None = None,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).reject_proposal(session_id, proposal_id)
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    return success(data, status="rejected")
+
+
+@instrument
+def revise_movie_step(
+    session_id: str,
+    feedback: str,
+    proposal_id: str | None = None,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        data = _authoring_controller(ctx).revise_proposal(session_id, feedback, proposal_id)
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+    return success(data, status="revision_requested")
+
+
+@instrument
+def pause_authoring_session(
+    session_id: str,
+    proposal_policy: str = "keep",
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).pause_session(session_id, proposal_policy))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def resume_authoring_session(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).resume_session(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def finish_authoring_session(
+    session_id: str,
+    context: StudioContext | None = None,
+) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).finish_session(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def start_authoring_live(session_id: str, context: StudioContext | None = None) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).start_live(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def restart_authoring_live(session_id: str, context: StudioContext | None = None) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).reload_live(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
+def stop_authoring_live(session_id: str, context: StudioContext | None = None) -> dict[str, Any]:
+    ctx = context or default_context()
+    try:
+        return success(_authoring_controller(ctx).stop_live(session_id))
+    except (movie_sessions.MovieSessionError, AuthoringSessionError) as exc:
+        return _authoring_error(exc)
+
+
+@instrument
 def export_deck(
     deck_id: str,
     format: str = "pptx",
@@ -517,6 +803,7 @@ def export_deck(
     return _build_response(ctx, build.build_id)
 
 
+@instrument
 def conventions_resource(context: StudioContext | None = None) -> dict[str, Any]:
     ctx = context or default_context()
     path = (ctx.repo_root / "docs" / "conventions.md").resolve()
@@ -535,6 +822,7 @@ def conventions_resource(context: StudioContext | None = None) -> dict[str, Any]
     return success({"path": path, "text": text})
 
 
+@instrument
 def catalog_resource(context: StudioContext | None = None) -> dict[str, Any]:
     return list_decks(context)
 
@@ -604,6 +892,27 @@ def _log_text(inspection: dict[str, Any], stream: Literal["stdout", "stderr"]) -
 
 def _staged_error(exc: staged_edits.StagedEditError) -> dict[str, Any]:
     return failure(exc.code, exc.message, detail=exc.detail)
+
+
+def _movie_session_error(exc: movie_sessions.MovieSessionError) -> dict[str, Any]:
+    return failure(exc.code, exc.message, detail=exc.detail)
+
+
+def _authoring_error(exc: Exception) -> dict[str, Any]:
+    code = getattr(exc, "code", "internal_error")
+    message = getattr(exc, "message", str(exc))
+    detail = getattr(exc, "detail", None)
+    return failure(code, message, detail=detail)
+
+
+def _authoring_controller(ctx: StudioContext) -> AuthoringSessionController:
+    return AuthoringSessionController(
+        ctx.repo_root,
+        catalog_path=ctx.catalog_path,
+        builds_root=ctx.builds_root,
+        render_runner=ctx.runner,
+        check_executables=ctx.check_executables,
+    )
 
 
 def _select_scene(ctx: StudioContext, target: str) -> dict[str, Any]:

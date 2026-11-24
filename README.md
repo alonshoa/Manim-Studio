@@ -5,10 +5,9 @@ Manim Studio is a local, reproducible workspace for building educational
 presentations, animations, and interactive slide decks with Manim Community and
 Manim Slides.
 
-The project is in an early but working foundation stage. It includes a
-registered scene catalog, the `studio` CLI, render profiles, isolated build
-directories, named beats for targeted iteration, a small reusable Manim Kit, and
-a local MCP server that exposes safe project services to MCP clients.
+Version **0.1.0** combines interactive authoring and movie sessions, a VS Code
+extension, native Windows installation, CLI/MCP project services, and optional local
+research capture. Python scenes remain the source of truth.
 
 Documentation
 -------------
@@ -27,47 +26,33 @@ Useful starting points:
 - [MCP Overview](docs/mcp/index.md)
 - [Contributing](docs/contributing/development.md)
 
-Quick Start
------------
+Quick Start — Windows
+---------------------
 
-Build the reusable runtime image:
+1. Download a verified Windows installation package from a successful
+   [Windows package workflow](https://github.com/alonshoa/Manim-Studio/actions/workflows/windows-research-package.yml).
+   Extract it and run `Start-Setup.cmd` as administrator under your normal account.
+   This is an online bootstrap ZIP, not a signed EXE/MSI; third-party downloads require Internet.
+2. Open the installed Manim Studio workspace, or initialize a separate project with
+   `studio project init ./demo --name "Demo Project"`.
+3. Connect the agent. The installed workspace supplies local Codex MCP configuration;
+   sign in and trust the project separately. Generated external projects include shared
+   Creator instructions for Codex and Claude; their default wrappers/MCP snippet use
+   Docker and need adaptation to a native interpreter (see installation guidance).
+4. Explicitly select **Guided** or **Flexible** for each new creation task. The Creator
+   skill must read that mode's reference before creating content.
+5. Create, review, revise, render and export. Start with `studio doctor --catalog`,
+   `studio list`, and `studio render examples/square_to_circle --profile draft` in the
+   installed repository workspace. Export supported all-slide decks with `studio export`.
 
-```bash
-docker build --target runtime -t manim-studio:local .
-```
+Research is optional and disabled on new installations unless explicitly enabled.
+See [Windows setup](docs/getting-started/windows-research-setup.md) for prerequisites,
+source pinning, agent connection and remaining acceptance checks. Complete practical
+walkthroughs remain tracked in [#31](https://github.com/alonshoa/Manim-Studio/issues/31).
 
-For local non-container development, use Python 3.11 or newer and install the
-project in editable mode:
-
-```bash
-python -m pip install -e ".[dev]"
-```
-
-Check the environment and catalog:
-
-```bash
-studio doctor
-studio doctor --catalog
-```
-
-Inspect registered content:
-
-```bash
-studio list
-studio beats matrix_work/vectors_ab_to_v
-```
-
-Render a scene:
-
-```bash
-studio render examples/square_to_circle --profile draft
-```
-
-Inspect the generated build:
-
-```bash
-studio inspect <build-id>
-```
+For development, existing Docker/devcontainer workflows remain available. Build with
+`docker build --target runtime -t manim-studio:local .`, or install locally using
+Python 3.11+ and `python -m pip install -e ".[dev]"` after installing render prerequisites.
 
 Common Workflows
 ----------------
@@ -77,6 +62,24 @@ Render a named beat:
 ```bash
 studio render matrix_work/vectors_ab_to_v --profile draft --beat resultant
 ```
+
+Start an experimental local OpenGL live preview at a named beat:
+
+```bash
+studio live matrix_work/vectors_ab_to_v --beat resultant --diagnose
+```
+
+Live preview is a development aid. Final artifacts still come from
+`studio render`, `studio build`, and `studio export`.
+
+Start an interactive movie session from an empty slate:
+
+```bash
+studio session start --title "Vector Movie" --deck-id vector_movie
+```
+
+The session command creates a registered scratch scene and a `.steps.json`
+ledger for accepted staged additions.
 
 Build a registered deck:
 
@@ -148,6 +151,16 @@ Still planned or intentionally unsupported:
 - HTML, PDF, ZIP, and mixed Manim/non-slide deck export
 - visual regression checks beyond review-frame/contact-sheet artifacts
 - cloud rendering, distributed workers, or GPU/OpenGL as a default workflow
+- verified GUI live preview in headless/container environments
 - a YAML-only animation language
 - fully autonomous scene editing through MCP
 - unrestricted shell access through MCP
+
+## Research logging
+
+Optional local prompt/response and action logging, retrospective classification and
+JSONL export and opt-in automatic Codex hook capture:
+[research logging](docs/concepts/research-logging.md).
+Other chat clients must explicitly supply prompts and responses to the bridge.
+
+Clean Windows machine: [research workstation setup](docs/getting-started/windows-research-setup.md).

@@ -20,6 +20,18 @@ class StudioCliTests(unittest.TestCase):
         self.assertEqual(profile_names(), find_profile_choices(parser, "build"))
         self.assertEqual(profile_names(), find_profile_choices(parser, "export"))
 
+    def test_parser_exposes_live_command(self) -> None:
+        parser = build_parser()
+        live_parser = find_subparser(parser, "live")
+
+        option_strings = {
+            option
+            for action in live_parser._actions
+            for option in action.option_strings
+        }
+        self.assertIn("--beat", option_strings)
+        self.assertIn("--diagnose", option_strings)
+
     def test_list_prints_decks_and_scenes(self) -> None:
         with StudioFixture() as fixture:
             output = io.StringIO()

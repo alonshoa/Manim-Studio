@@ -80,6 +80,27 @@ docker run --rm -it ...
 On Windows, prefer the devcontainer/runtime container or WSL Linux paths when
 renders are expected.
 
+## Devcontainer Live Preview Has No Window
+
+`studio live` needs an interactive terminal and a graphical display. The
+devcontainer is configured for WSLg/X11 forwarding by mounting `/mnt/wslg` and
+`/tmp/.X11-unix` and forwarding display environment variables.
+
+Check diagnostics inside the devcontainer:
+
+```bash
+studio live matrix_work/vectors_ab_to_v --beat resultant --diagnose
+```
+
+If `Graphical display` fails, confirm the repository was opened from WSL with
+WSLg available and that `DISPLAY`, `WAYLAND_DISPLAY`, and `XDG_RUNTIME_DIR` are
+set in the container. If the host cannot provide those sockets, use local host
+Python for live preview or render the selected beat headlessly:
+
+```bash
+studio render matrix_work/vectors_ab_to_v --profile draft --beat resultant
+```
+
 ## PPTX Export Is Unsupported
 
 PPTX export requires every scene in the deck to use:

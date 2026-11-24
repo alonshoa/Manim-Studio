@@ -20,6 +20,20 @@ from manim_studio.project_builder import (
 
 
 class ProjectBuilderTests(unittest.TestCase):
+    def test_generated_clients_receive_identical_canonical_skill_and_explicit_mode_gate(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            root = Path(tempdir) / "project"
+            create_project(default_options(root, "Demo"))
+            canonical = Path(__file__).resolve().parents[1] / ".agents/skills/manim-studio-creator"
+            for client in (".agents", ".claude"):
+                for relative in ("SKILL.md", "references/guided.md", "references/flexible.md"):
+                    self.assertEqual((canonical / relative).read_bytes(),
+                                     (root / client / "skills/manim-studio-creator" / relative).read_bytes())
+            for name in ("AGENTS.md", "CLAUDE.md"):
+                text = (root / name).read_text()
+                self.assertIn("Never infer or silently select a mode", text)
+                self.assertIn("Completion and export require user approval", text)
+
     def test_defaults_sanitize_names_for_catalog_and_class(self) -> None:
         options = default_options(
             path="C:/tmp/123 Demo Slides!",
@@ -46,6 +60,10 @@ class ProjectBuilderTests(unittest.TestCase):
                 ".gitignore",
                 "README.md",
                 "AGENTS.md",
+                "CLAUDE.md",
+                *{f"{client}/skills/manim-studio-creator/{name}"
+                  for client in (".agents", ".claude")
+                  for name in ("SKILL.md", "references/guided.md", "references/flexible.md")},
                 "compose.yml",
                 "mcp.manim-studio.json",
                 "catalog/scenes.yaml",

@@ -1,6 +1,9 @@
 from manim import *
 
 from manim_kit import DEFAULT_THEME, HebrewSlide, explanation_panel, hebrew_text
+from manim_kit.beats import LIVE_BEAT_ENV
+
+import os
 
 
 class VectorsABtoV(HebrewSlide):
@@ -44,7 +47,7 @@ class VectorsABtoV(HebrewSlide):
         panel = explanation_panel(right_col)
         panel.to_edge(RIGHT, buff=0.6).shift(UP * 0.8)
         box = panel[0]
-        self.play(FadeIn(box), Write(right_col[0]))
+        self.play(FadeIn(box), self._write_or_fade_for_live(right_col[0]))
         self.beat("tail_to_head", label="Move b to the head of a")
 
         a_tip = axes.c2p(*self.VECTOR_A)
@@ -62,7 +65,7 @@ class VectorsABtoV(HebrewSlide):
         v_group[0].set_stroke(width=8, opacity=0.65)
         self.play(Flash(axes.c2p(*self.VECTOR_V), color=YELLOW, flash_radius=0.6))
         self.play(Create(v_group[0]), FadeIn(v_group[1:]))
-        self.play(Write(right_col[1:]))
+        self.play(self._write_or_fade_for_live(right_col[1:]))
 
         self.beat("emphasis_loop", label="Emphasize resultant", loop=True)
         self.play(Indicate(v_group[0], color=YELLOW), run_time=1.2)
@@ -111,3 +114,8 @@ class VectorsABtoV(HebrewSlide):
             aligned_edge=LEFT,
             buff=0.28,
         )
+
+    def _write_or_fade_for_live(self, mobject):
+        if os.environ.get(LIVE_BEAT_ENV):
+            return FadeIn(mobject)
+        return Write(mobject)

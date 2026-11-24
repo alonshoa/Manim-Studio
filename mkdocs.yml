@@ -31,18 +31,23 @@ nav:
   - Home: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
+      - Windows Setup: getting-started/windows-research-setup.md
       - Quick Start: getting-started/quick-start.md
       - External Projects: getting-started/external-projects.md
   - Core Concepts:
       - Project Model: concepts/project-model.md
       - Catalog: concepts/catalog.md
       - Render Profiles: concepts/render-profiles.md
+      - Live Preview: concepts/live-preview.md
+      - Movie Sessions: concepts/movie-sessions.md
+      - Interactive Authoring: concepts/interactive-authoring.md
   - Workflows:
       - Render A Scene: workflows/render-a-scene.md
       - Render A Beat: workflows/render-a-beat.md
       - Build A Deck: workflows/build-a-deck.md
       - Export PPTX: workflows/export-pptx.md
       - Debug Render Failures: workflows/debug-render-failures.md
+      - Interactive Authoring In VS Code: workflows/interactive-authoring-vscode.md
   - Examples:
       - Overview: examples/index.md
       - Basic Scenes: examples/basic-scenes.md
@@ -63,6 +68,14 @@ nav:
       - Configuration: reference/configuration.md
       - Troubleshooting: reference/troubleshooting.md
       - MCP Conventions Resource: conventions.md
+  - Optional Research:
+      - Capture and Privacy: concepts/research-logging.md
+      - Sessions: concepts/research-sessions.md
+      - Prompt Classification: concepts/prompt-classification-ui.md
+      - Artifacts: concepts/research-artifacts.md
+      - Time Tracking: concepts/research-time.md
+      - Integrity and Export: concepts/research-integrity.md
+  - Release Readiness: release-readiness-v0.1.0.md
   - Contributing:
       - Development: contributing/development.md
       - Documentation: contributing/documentation.md

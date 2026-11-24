@@ -19,6 +19,12 @@ jobs:
     env:
       PYTHONDONTWRITEBYTECODE: "1"
     steps:
+      - name: Install Git for checkout and research metadata tests
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends git
+          git --version
+
       - name: Check out repository
         uses: actions/checkout@v4
 

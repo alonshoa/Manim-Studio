@@ -7,9 +7,10 @@ from pathlib import Path
 import subprocess
 import sys
 import unittest
+import unittest.mock
 
 from manim_kit import BeatMixin, DEFAULT_THEME, StudioTheme
-from manim_kit.beats import _section_name
+from manim_kit.beats import LIVE_BEAT_ENV, TARGET_BEAT_ENV, _section_name
 
 
 MANIM_AVAILABLE = importlib.util.find_spec("manim") is not None
@@ -60,6 +61,70 @@ class ManimKitTests(unittest.TestCase):
             scene.sections,
         )
         self.assertFalse(set(scene.sections[0][0]) & set('<>:"/\\|?*'))
+
+    def test_beat_mixin_does_not_enter_live_preview_without_live_env(self) -> None:
+        class DummyScene(BeatMixin):
+            def __init__(self) -> None:
+                self.sections: list[tuple[str, bool]] = []
+                self.embed_count = 0
+
+            def next_section(self, name: str, skip_animations: bool = False) -> None:
+                self.sections.append((name, skip_animations))
+
+            def interactive_embed(self) -> None:
+                self.embed_count += 1
+
+        with unittest.mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop(LIVE_BEAT_ENV, None)
+            scene = DummyScene()
+            scene.beat("intro")
+
+        self.assertEqual(0, scene.embed_count)
+        self.assertEqual([("intro", False)], scene.sections)
+
+    def test_beat_mixin_enters_live_preview_for_selected_beat(self) -> None:
+        class DummyScene(BeatMixin):
+            def __init__(self) -> None:
+                self.sections: list[tuple[str, bool]] = []
+                self.embed_count = 0
+
+            def next_section(self, name: str, skip_animations: bool = False) -> None:
+                self.sections.append((name, skip_animations))
+
+            def interactive_embed(self) -> None:
+                self.embed_count += 1
+
+        with unittest.mock.patch.dict(
+            os.environ,
+            {TARGET_BEAT_ENV: "result", LIVE_BEAT_ENV: "result"},
+        ):
+            scene = DummyScene()
+            scene.beat("intro")
+            scene.beat("result", label="Show result")
+
+        self.assertEqual(1, scene.embed_count)
+        self.assertEqual(
+            [("intro", True), ("result - Show result", False)],
+            scene.sections,
+        )
+
+    def test_beat_mixin_skips_live_preview_for_nonmatching_beat(self) -> None:
+        class DummyScene(BeatMixin):
+            def __init__(self) -> None:
+                self.sections: list[tuple[str, bool]] = []
+                self.embed_count = 0
+
+            def next_section(self, name: str, skip_animations: bool = False) -> None:
+                self.sections.append((name, skip_animations))
+
+            def interactive_embed(self) -> None:
+                self.embed_count += 1
+
+        with unittest.mock.patch.dict(os.environ, {LIVE_BEAT_ENV: "result"}):
+            scene = DummyScene()
+            scene.beat("intro")
+
+        self.assertEqual(0, scene.embed_count)
 
     def test_lightweight_public_imports_do_not_load_studio_tooling(self) -> None:
         repo_root = Path(__file__).resolve().parents[1]

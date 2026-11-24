@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from manim_studio.research_artifacts import research_transition
+
 import difflib
 import hashlib
 import json
@@ -23,6 +25,7 @@ STAGED_DIR_NAME = "staged"
 WORKSPACE_DIR_NAME = "workspace"
 COPY_IGNORE = {
     ".git",
+    ".venv",
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
@@ -124,6 +127,52 @@ def inspect_scene_patch(
     return _public_metadata(metadata)
 
 
+def proposal_workspace_path(
+    repo_root: Path | str,
+    builds_root: Path | str,
+    proposal_id: str,
+) -> Path:
+    metadata = _load_metadata(repo_root, builds_root, proposal_id)
+    return _workspace_dir_from_metadata(metadata)
+
+
+def proposal_source_path(
+    repo_root: Path | str,
+    builds_root: Path | str,
+    proposal_id: str,
+) -> Path:
+    metadata = _load_metadata(repo_root, builds_root, proposal_id)
+    entry = _entry_from_metadata(metadata)
+    source_path = (_workspace_dir_from_metadata(metadata) / entry.source_path).resolve()
+    try:
+        source_path.relative_to(_workspace_dir_from_metadata(metadata))
+    except ValueError as exc:
+        raise StagedEditError("invalid_target", "proposal source path escapes workspace") from exc
+    return source_path
+
+
+def update_scene_patch_source(
+    repo_root: Path | str,
+    builds_root: Path | str,
+    proposal_id: str,
+    source_text: str,
+) -> dict[str, Any]:
+    metadata = _load_metadata(repo_root, builds_root, proposal_id)
+    entry = _entry_from_metadata(metadata)
+    source_path = (_workspace_dir_from_metadata(metadata) / entry.source_path).resolve()
+    try:
+        source_path.relative_to(_workspace_dir_from_metadata(metadata))
+    except ValueError as exc:
+        raise StagedEditError("invalid_target", "proposal source path escapes workspace") from exc
+
+    original = _source_path(Path(repo_root).resolve(), entry).read_text(encoding="utf-8")
+    source_path.write_text(source_text, encoding="utf-8")
+    metadata["patched_checksum"] = _sha256_text(source_text)
+    metadata["diff"] = _diff_text(entry.source_path, original, source_text)
+    _write_metadata(_proposal_dir(repo_root, builds_root, proposal_id), metadata)
+    return _public_metadata(metadata)
+
+
 def validate_scene_patch(
     repo_root: Path | str,
     builds_root: Path | str,
@@ -161,7 +210,7 @@ def render_scene_patch(
     metadata = _load_metadata(repo_root, builds_root, proposal_id)
     workspace_dir = _workspace_dir_from_metadata(metadata)
     entry = _entry_from_metadata(metadata)
-    proposal_builds = _proposal_dir(repo_root, builds_root, proposal_id) / "builds"
+    proposal_builds = _staged_render_root(repo_root, builds_root, proposal_id)
     build = render_scene(
         workspace_dir,
         entry,
@@ -187,6 +236,7 @@ def render_scene_patch(
     return _public_metadata(metadata), build
 
 
+@research_transition('accept')
 def apply_scene_patch(
     repo_root: Path | str,
     builds_root: Path | str,
@@ -240,6 +290,8 @@ def apply_scene_patch(
 
     staged_source = (_workspace_dir_from_metadata(metadata) / entry.source_path).resolve()
     patched = staged_source.read_text(encoding="utf-8")
+    from manim_studio.research_artifacts import verify_transition_candidate
+    verify_transition_candidate(root, staged_source)
     source_path.write_text(patched, encoding="utf-8")
     metadata["applied"] = {
         "status": "success",
@@ -247,6 +299,23 @@ def apply_scene_patch(
         "applied_checksum": _sha256_text(patched),
     }
     _write_metadata(_proposal_dir(root, builds_root, proposal_id), metadata)
+    return _public_metadata(metadata)
+
+
+@research_transition('reject')
+def reject_scene_patch(
+    repo_root: Path | str,
+    builds_root: Path | str,
+    proposal_id: str,
+) -> dict[str, Any]:
+    metadata = _load_metadata(repo_root, builds_root, proposal_id)
+    from manim_studio.research_artifacts import verify_transition_candidate
+    verify_transition_candidate(repo_root, proposal_source_path(repo_root, builds_root, proposal_id))
+    metadata["applied"] = {
+        "status": "rejected",
+        "rejected_at": _utc_now(),
+    }
+    _write_metadata(_proposal_dir(repo_root, builds_root, proposal_id), metadata)
     return _public_metadata(metadata)
 
 
@@ -426,6 +495,8 @@ def _copy_workspace(repo_root: Path, workspace_dir: Path) -> None:
 
 def _ignore_copy_items(_directory: str, names: list[str]) -> set[str]:
     ignored = {name for name in names if name in COPY_IGNORE}
+    if Path(_directory).name == ".manim-studio":
+        ignored.add("research")
     ignored.update(name for name in names if name.endswith(".egg-info"))
     return ignored
 
@@ -466,6 +537,11 @@ def _workspace_dir_from_metadata(metadata: dict[str, Any]) -> Path:
 
 def _proposal_dir(repo_root: Path | str, builds_root: Path | str, proposal_id: str) -> Path:
     return _staged_root(repo_root, builds_root) / proposal_id
+
+
+def _staged_render_root(repo_root: Path | str, builds_root: Path | str, proposal_id: str) -> Path:
+    digest = hashlib.sha256(proposal_id.encode("utf-8")).hexdigest()[:10]
+    return _staged_root(repo_root, builds_root) / "_r" / digest
 
 
 def _staged_root(repo_root: Path | str, builds_root: Path | str) -> Path:

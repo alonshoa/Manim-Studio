@@ -32,15 +32,15 @@ class CatalogValidationTests(unittest.TestCase):
         result = validate_catalog(repo_root)
 
         self.assertTrue(result.ok, result.errors)
-        self.assertEqual(
-            {
-                ("examples", "square_to_circle"),
-                ("examples", "basic_slide"),
-                ("matrix_work", "vectors_ab_to_v"),
-                ("losses", "binary_cross_entropy"),
-                ("matrix_work", "parametric_curve_3d"),
-            },
-            {(entry.deck_id, entry.scene_id) for entry in result.entries},
+        expected_curated = {
+            ("examples", "square_to_circle"),
+            ("examples", "basic_slide"),
+            ("matrix_work", "vectors_ab_to_v"),
+            ("losses", "binary_cross_entropy"),
+            ("matrix_work", "parametric_curve_3d"),
+        }
+        self.assertTrue(
+            expected_curated.issubset({(entry.deck_id, entry.scene_id) for entry in result.entries})
         )
 
     def test_external_project_fixture_validates_with_strict_metadata(self) -> None:
